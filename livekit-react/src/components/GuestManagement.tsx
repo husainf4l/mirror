@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './GuestManagement.css';
 
 interface Guest {
@@ -234,7 +235,14 @@ const GuestManagement: React.FC = () => {
         const data = await response.json();
         
         if (data.success) {
-          showMessage(`Successfully imported ${data.imported_count} guests`, 'success');
+          // Show detailed success message
+          let message = 'Import completed: ';
+          const details = [];
+          if (data.imported_count > 0) details.push(`${data.imported_count} imported`);
+          if (data.updated_count > 0) details.push(`${data.updated_count} updated`);
+          if (data.skipped_count > 0) details.push(`${data.skipped_count} skipped`);
+          message += details.join(', ');
+          showMessage(message, 'success');
           await fetchGuests();
         } else {
           showMessage(data.message || 'Import failed', 'error');
@@ -264,6 +272,26 @@ const GuestManagement: React.FC = () => {
     );
   }
 
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('/api/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        localStorage.clear();
+        navigate('/login');
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      localStorage.clear();
+      navigate('/login');
+    }
+  };
+
   return (
     <div className="guest-management">
       <div className="header">
@@ -290,6 +318,14 @@ const GuestManagement: React.FC = () => {
               style={{ display: 'none' }}
             />
           </label>
+          <button 
+            onClick={handleLogout}
+            className="btn btn-logout"
+            title="Logout"
+          >
+            <span className="logout-icon">👤</span>
+            <span className="logout-text">Logout</span>
+          </button>
         </div>
       </div>
 

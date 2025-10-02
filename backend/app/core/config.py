@@ -6,10 +6,27 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Wedding Mirror"
     VERSION: str = "1.0.0"
     
+    # Environment
+    ENVIRONMENT: str = "production"  # development, staging, production
+    
     # Server settings
     HOST: str = "0.0.0.0"
     PORT: int = 8000
-    DEBUG: bool = True
+    DEBUG: bool = False  # Changed to False for production
+    
+    # Cookie settings (production defaults)
+    COOKIE_SECURE: bool = True  # HTTPS only
+    COOKIE_SAMESITE: str = "none"  # Allow cross-origin
+    COOKIE_DOMAIN: str | None = None  # Let browser handle it
+    
+    # CORS settings
+    CORS_ORIGINS: list = [
+        "http://localhost:3000",
+        "https://raheva.com",
+        "https://www.raheva.com",
+        "http://raheva.com",
+        "http://www.raheva.com",
+    ]
     
     # Database
     DATABASE_URL: str = "postgresql:///mirror?user=husain"

@@ -22,7 +22,7 @@ class Guest(Base):
     id = Column(Integer, primary_key=True, index=True)
     first_name = Column(String(100), nullable=False, index=True)
     last_name = Column(String(100), nullable=False, index=True)
-    phone = Column(String(20), nullable=True, unique=True)
+    phone = Column(String(20), nullable=True, unique=False)  # Changed to allow duplicate phones
     seat_number = Column(String(10), nullable=True)
     relation = Column(String(100), nullable=True)  # Free text relation
     relation_type_id = Column(Integer, ForeignKey("relation_types.id"), nullable=True)
@@ -31,6 +31,7 @@ class Guest(Base):
     about = Column(Text, nullable=True)   # Additional information about the guest
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)  # Soft delete support
     
     # Relationship
     relation_type = relationship("RelationType", back_populates="guests")
@@ -41,3 +42,8 @@ class Guest(Base):
     @property 
     def full_name(self):
         return f"{self.first_name} {self.last_name}".strip()
+    
+    @property
+    def is_deleted(self):
+        """Check if guest is soft deleted"""
+        return self.deleted_at is not None

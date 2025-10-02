@@ -31,7 +31,7 @@ interface TokenResponse {
 const Mirror: React.FC = () => {
   // Mirror state
   const [mirrorText, setMirrorText] = useState<string>(
-    '<span class="line fancy">Welcome to</span><span class="line fancy">x & y</span><span class="line fancy">Wedding</span><span class="line script">Say Mirror Mirror to begin</span>'
+    '<span class="line fancy">Welcome to</span><span class="line fancy">Rakan & Farah</span><span class="line fancy">Wedding</span><span class="line script">Say Mirror Mirror to begin</span>'
   );
   const [connected, setConnected] = useState<boolean>(false);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -48,6 +48,9 @@ const Mirror: React.FC = () => {
 
   // Audio and video enable states
   const [audioEnabled, setAudioEnabled] = useState<boolean>(false);
+  
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [videoEnabled, setVideoEnabled] = useState<boolean>(false);
 
   // Rotation state
@@ -302,6 +305,49 @@ const Mirror: React.FC = () => {
     setRotation((prevRotation) => (prevRotation + 90) % 360);
   };
 
+  // Fullscreen functionality
+  const enterFullscreen = async () => {
+    try {
+      if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+      }
+    } catch (error) {
+      console.error('Failed to enter fullscreen:', error);
+    }
+  };
+
+  const exitFullscreen = async () => {
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    } catch (error) {
+      console.error('Failed to exit fullscreen:', error);
+    }
+  };
+
+  const toggleFullscreen = () => {
+    if (isFullscreen) {
+      exitFullscreen();
+    } else {
+      enterFullscreen();
+    }
+  };
+
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
   return (
     <>
       {/* Black background overlay that covers entire viewport */}
@@ -343,6 +389,15 @@ const Mirror: React.FC = () => {
       
       {/* Rotation control outside of transformed container */}
       <RotationControl rotation={rotation} onRotate={rotateDisplay} />
+      
+      {/* Fullscreen control */}
+      <button 
+        className="fullscreen-button"
+        onClick={toggleFullscreen}
+        title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+      >
+        <i className="fas fa-star"></i>
+      </button>
     </>
   );
 };

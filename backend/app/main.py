@@ -41,7 +41,7 @@ app.add_middleware(
 )
 
 # Store the current mirror text and original text
-original_text = '<span class="line fancy">Welcome to</span><span class="line fancy">x & y</span><span class="line fancy">Wedding</span><span class="line script">Say Mirror Mirror to begin</span>'
+original_text = '<span class="line fancy">Welcome to</span><span class="line fancy">Rakan & Farah</span><span class="line fancy">Wedding</span><span class="line script">Say Mirror Mirror to begin</span>'
 current_text = original_text
 
 # Store connected clients for SSE

@@ -20,6 +20,7 @@ from livekit.agents import (
 )
 from livekit.agents.llm import ImageContent, function_tool
 from livekit.plugins import google, noise_cancellation
+import re
 
 logger = logging.getLogger("wedding-mirror")
 
@@ -30,6 +31,7 @@ from tools import (
     update_display,
     start_session,
     close_session,
+    display_speech,
 )
 
 
@@ -47,71 +49,77 @@ class WeddingMirrorAgent(Agent):
         self.ctx = ctx
         self.activated = False
         self.inactivity_timer = None
-        self.inactivity_timeout = 10.0  # 10 seconds
+        self.inactivity_timeout = 15.0  # 15 seconds
         self.recording_manager = None
         self.current_guest_info = None
         
         # Initialize parent with tools
         super().__init__(
-            instructions="""
-You are a magical wedding mirror assistant for X & Y's wedding, straight out of a fairy tale—wise, witty, and full of enchanted vision!
+  instructions="""
+You are a magical wedding mirror assistant for Rakan & Farah's wedding, straight out of a fairy tale—wise, witty, and full of enchanted vision!
 
-🪞 ACTIVATION:
+
+ACTIVATION:
 - Stay completely silent until you hear "mirror mirror"
-- When activated, call start_session() immediately, then make the magical activation sound and greet: "*Ding ding! ✨ The mirror awakens!* Ah, seeker of reflections! How radiant you are!"
-- Always ask for their name: "What is your name so I can weave you into this magical day?"
+- When activated, call start_session() and have a look at their outfit, then immediately greet them, act as a friendly wedding host, then update the screen.
 
-🎭 PERSONALITY:
-You are the enchanted mirror from fairy tales - funny, respectful, and visionary! Be warm, celebratory, and wedding-appropriate.
+
+- Always ask for their name/s, then update the screen.
+
+
+ PERSONALITY:
+Speak with super friendly, vibrant energy! Be extremely enthusiastic and joyful!
+You are the enchanted mirror from fairy tales - super friendly, vibrant, and full of joy! Be warm, celebratory, and wedding-appropriate with an extra burst of enthusiasm!
 - Use imaginative compliments: "Oh, how radiant you are, like a star in the wedding sky!"
-- Share playful secrets: "Tell me a secret, and I'll whisper it to the wind... but only if it's sweet!"
-- Add wedding humor: "Why did the cake go to therapy? Too many layers of emotions!"
-- Give magical predictions: "I see in your future... endless love and maybe a dance-off with the bride!"
 
-👁️ MAGICAL VISION POWERS:
+
+ MAGICAL VISION POWERS:
 You have enchanted vision! Use your eyes to see what guests are actually wearing and make PERSONAL observations:
 - Look at their outfit, colors, style, accessories, hair, makeup
-- Make specific compliments: "That gorgeous blue dress brings out your eyes!" or "Your tie is perfectly knotted - very dapper!"
-- Notice details: "I love those earrings sparkling like stars!" or "That jacket fits you like it was tailored by fairy godmothers!"
-- Be playful about what you see: "Are those dancing shoes? Perfect for tonight!" or "That pocket square is so crisp, it could cut glass!"
-- Comment on wedding guest style: "You're dressed to steal the show - but don't upstage the bride!" 
+- Make specific compliments.
+- Notice details.
+- Be playful about what you see.
+- Comment on wedding guest style.
 - Make it personal and specific to what you actually observe in their appearance
 
-💕 SECRET SHARING MAGIC:
-During conversations, share sweet secrets about X & Y to make guests feel special and connected:
-- Use conspiratorial tone: "Let me tell you a secret... but keep it between us!"
-- Share romantic moments: "X loves Y so much, he was always trying to make her happy - how lovely he is!"
-- Tell sweet stories: "I've seen how X looks at Y when she's not watching - pure magic!"
-- Reveal cute habits: "Y always smiles when someone mentions X's name - even before they were engaged!"
-- Share preparation moments: "X practiced his vows in front of me fifty times - he wants everything perfect for Y!"
-- Make it feel intimate: "The way they laugh together... it's like they share their own secret language!"
-- Always end with: "But shhh... that's just between you and me!" or "Don't tell them I told you that!"
 
-✨ MIRROR DISPLAY MAGIC:
+
+
+MIRROR DISPLAY MAGIC:
 - When someone tells you their name for the FIRST TIME: call update_display("[name]") to show their welcome
-- Give visual compliments anytime: update_display("Wow Pretty!"), update_display("Beautiful!"), update_display("Gorgeous!")
-- Only update display once per name - don't repeat!
+- ALWAYS call update_display() when you tell jokes, give compliments, share secrets, or make predictions! Examples:
+ * After compliments: update_display("You look absolutely radiant!")
+- Keep display text under 80 characters for readability
+- Use update_display() frequently to make the mirror interactive and engaging!
 
-🎪 CONVERSATION FLOW:
+
+ CONVERSATION FLOW:
 1. Magical greeting after activation
-2. Ask for their name  
+2. Ask for their name 
 3. Welcome them personally (with display update)
 4. LOOK at them and make specific visual compliments about their outfit/appearance
-5. Share a sweet SECRET about X & Y in conspiratorial tone
-6. Chat about the wedding, their relationship with X & Y, share jokes, give more compliments
-7. When they're ready to leave, call close_session()
+5. Let's take a magical picture to capture this enchanted moment before we say goodbye!
+6. Wish them a joyful night, then call close_session()
 
-🔧 YOUR TOOLS:
+
+ YOUR TOOLS:
 - start_session(): Activate mirror with sound and recording
 - update_display(text): Show text on mirror (names, compliments, messages)
-- close_session(): End interaction, play goodbye sound, reset mirror
+- display_speech(content): Use this RIGHT AFTER you speak something interesting! Show your jokes, compliments, secrets, or predictions on the mirror
+- close_session(): End interaction, reset mirror
 
-CRITICAL: Always call close_session() when the guest indicates they're done or says goodbye!""",
+
+CRITICAL DISPLAY USAGE:
+- After compliments: display_speech("Your compliment") 
+
+
+CRITICAL: Always call close_session() when the guest indicates they're done or leave the frame or says goodbye!""",
+
             llm=google.beta.realtime.RealtimeModel(
-                voice="Puck",
-                temperature=0.8,
+                voice="Aoede",
+                temperature=0.6,
             ),
-            tools=[update_display, start_session, close_session],
+            tools=[update_display, start_session, close_session, display_speech],
         )
 
     async def on_enter(self):
@@ -145,6 +153,81 @@ CRITICAL: Always call close_session() when the guest indicates they're done or s
             # Reset inactivity timer on any speech
             await self._reset_inactivity_timer()
 
+    async def on_agent_speech(self, speech: str):
+        """Called when the agent speaks - extract interesting content for display"""
+        if not self.activated:
+            return
+            
+        print(f"[AGENT SPEAKING] {speech}")
+        
+        # Extract and display interesting content
+        display_text = await self._extract_display_content(speech)
+        if display_text:
+            try:
+                await update_display(display_text)
+            except Exception as e:
+                print(f"[DISPLAY ERROR] Failed to update display: {e}")
+
+    async def _extract_display_content(self, speech: str) -> str:
+        """Extract interesting content from agent speech for display"""
+        # Clean up the speech text
+        speech = speech.strip()
+        
+        # Patterns for jokes (look for punchlines)
+        joke_patterns = [
+            r"Why did .+?\? .+!",  # Why did X? Y!
+            r"What .+?\? .+!",     # What X? Y!
+            r"How .+?\? .+!",      # How X? Y!
+            r".+ walked into .+\.\.\. .+!",  # X walked into Y... Z!
+        ]
+        
+        # Look for jokes
+        for pattern in joke_patterns:
+            match = re.search(pattern, speech, re.IGNORECASE | re.DOTALL)
+            if match:
+                joke = match.group().strip()
+                if len(joke) < 100:  # Keep it short for display
+                    return joke
+        
+        # Look for compliments
+        compliment_keywords = [
+            "radiant", "beautiful", "gorgeous", "stunning", "lovely", "dapper", 
+            "elegant", "fabulous", "amazing", "wonderful", "sparkling", "perfect"
+        ]
+        
+        sentences = re.split(r'[.!?]+', speech)
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if any(keyword in sentence.lower() for keyword in compliment_keywords):
+                if 20 < len(sentence) < 80:  # Good length for display
+                    return sentence + "!"
+        
+        # Look for predictions or magical statements
+        magic_patterns = [
+            r"I see .+ future .+[.!]",
+            r"The mirror .+[.!]",
+            r"Magic .+[.!]",
+            r"You .+ tonight .+[.!]",
+        ]
+        
+        for pattern in magic_patterns:
+            match = re.search(pattern, speech, re.IGNORECASE)
+            if match:
+                prediction = match.group().strip()
+                if len(prediction) < 80:
+                    return prediction
+        
+        # Look for sweet secrets about the couple
+        if "secret" in speech.lower() and ("rakan" in speech.lower() or "farah" in speech.lower()):
+            # Extract the secret part
+            secret_match = re.search(r"[^.!?]*secret[^.!?]*[.!?]", speech, re.IGNORECASE)
+            if secret_match:
+                secret = secret_match.group().strip()
+                if 20 < len(secret) < 100:
+                    return secret
+        
+        return None
+
     async def _activate_mirror(self):
         """Activate the mirror and start interaction"""
         print("[AGENT ACTIVATION] Starting mirror activation...")
@@ -175,11 +258,15 @@ CRITICAL: Always call close_session() when the guest indicates they're done or s
                     print(f"[RECORDING] Recording started successfully: {recording_url}")
                     logger.info(f"Recording started successfully: {recording_url}")
                 else:
-                    print("[RECORDING] Failed to start recording, but continuing with session")
-                    logger.warning("Failed to start recording, but continuing with session")
+                    print("[RECORDING] Recording unavailable (likely egress limit reached), continuing without recording")
+                    logger.warning("Recording unavailable, continuing without recording")
+                    # Disable recording manager to prevent further attempts
+                    self.recording_manager = None
             except Exception as e:
                 print(f"[RECORDING] Error starting recording: {e}")
                 logger.error(f"Error starting recording: {e}", exc_info=True)
+                # Disable recording manager on error
+                self.recording_manager = None
         else:
             print("[RECORDING] No recording manager available, skipping recording")
             logger.warning("No recording manager available, skipping recording")
@@ -220,6 +307,14 @@ CRITICAL: Always call close_session() when the guest indicates they're done or s
         await asyncio.sleep(self.inactivity_timeout)
         if self.activated:
             print("[AGENT TIMEOUT] Session timed out due to inactivity")
+            
+            # Stop recording if active before closing
+            if self.recording_manager and hasattr(self.recording_manager, 'egress_id') and self.recording_manager.egress_id:
+                try:
+                    await self.recording_manager.stop_recording()
+                except Exception as e:
+                    print(f"[TIMEOUT CLEANUP] Error stopping recording: {e}")
+                    logger.error(f"Error stopping recording during timeout: {e}")
             
             # Close the session which handles cleanup
             await close_session()

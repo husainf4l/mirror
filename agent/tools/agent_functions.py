@@ -36,19 +36,19 @@ async def update_display(text: str) -> str:
         formatted_text = (
             f'<span class="line fancy">Welcome</span>'
             f'<span class="line fancy">{clean_name}!</span>'
-            f'<span class="line fancy">To X & Y</span>'
+            f'<span class="line fancy">To Rakan & Farah</span>'
             f'<span class="line script">Enjoy the celebration!</span>'
         )
-        display_message = f"Welcome {clean_name}! To X & Y - Enjoy the celebration!"
+        display_message = f"Welcome {clean_name}! To Rakan & Farah - Enjoy the celebration!"
     else:
         # Format as general message for compliments or other text
         formatted_text = (
             f'<span class="line fancy">{display_text}</span>'
-            f'<span class="line fancy">To X & Y</span>'
+            f'<span class="line fancy">To Rakan & Farah</span>'
             f'<span class="line script">Enjoy the celebration!</span>'
         )
-        display_message = f"{display_text} - To X & Y - Enjoy the celebration!"
-    
+        display_message = f"{display_text} - To Rakan & Farah - Enjoy the celebration!"
+
     print(f"[MIRROR DISPLAY] Updating mirror text to: {display_message}")
     
     payload = {
@@ -75,6 +75,28 @@ async def update_display(text: str) -> str:
         return f"Error updating mirror: {str(e)}"
 
 
+
+
+@function_tool
+async def display_speech(speech_content: str) -> str:
+    """Display interesting content from your speech on the mirror. Use this after telling jokes, giving compliments, sharing secrets, or making predictions to show the text on the mirror display."""
+    print(f"[DISPLAY SPEECH] Showing: {speech_content}")
+    
+    # Clean and truncate the content for display
+    display_text = speech_content.strip()
+    if len(display_text) > 80:
+        # Try to find a good breaking point
+        if '!' in display_text[:80]:
+            display_text = display_text[:display_text.find('!', 0, 80) + 1]
+        elif '?' in display_text[:80]:
+            display_text = display_text[:display_text.find('?', 0, 80) + 1]
+        elif '.' in display_text[:80]:
+            display_text = display_text[:display_text.find('.', 0, 80) + 1]
+        else:
+            display_text = display_text[:77] + "..."
+    
+    # Use the existing update_display function
+    return await update_display(display_text)
 
 
 @function_tool
@@ -132,7 +154,7 @@ async def start_session() -> str:
     
     # Return the activation sound for the agent to speak immediately
     print("[AUDIO] Mirror activation completed - returning activation sound...")
-    return "*Ding ding! ✨ The mirror awakens!* Mirror activated successfully!"
+    return "*Ding ding! "
 
 
 @function_tool

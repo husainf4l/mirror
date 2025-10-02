@@ -128,3 +128,28 @@ async def update_text(text_update: TextUpdate):
         "new_text": current_text,
         "clients_notified": len(connected_clients)
     }
+
+@app.post("/api/play-audio")
+async def play_audio(request: dict):
+    """Trigger audio playback in the frontend"""
+    audio_file = request.get("audio_file", "mirror_activation.wav")
+    action = request.get("action", "play_sound")
+    
+    # Create audio play event
+    audio_event = {
+        "type": "audio_play",
+        "audio_file": audio_file,
+        "action": action,
+        "message": "Playing mirror activation sound"
+    }
+    
+    # Broadcast to all connected clients
+    await broadcast_message(audio_event)
+    
+    return {
+        "success": True,
+        "message": f"Audio play command sent: {audio_file}",
+        "clients_notified": len(connected_clients),
+        "audio_file": audio_file,
+        "action": action
+    }

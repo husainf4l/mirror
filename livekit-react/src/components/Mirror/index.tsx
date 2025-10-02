@@ -8,7 +8,7 @@ import LiveKitConnection from './LiveKitConnection';
 import './Mirror.css';
 
 const apiUrl = process.env.REACT_APP_API_URL || '';
-const serverUrl = process.env.REACT_APP_LIVEKIT_URL || 'wss://mirror-je9mbmgp.livekit.cloud';
+const serverUrl = process.env.REACT_APP_LIVEKIT_URL || 'wss://widdai-aphl2lb9.livekit.cloud';
 
 interface SSEMessage {
   type: string;
@@ -17,6 +17,8 @@ interface SSEMessage {
   current_text?: string;
   message?: string;
   timestamp?: number;
+  audio_file?: string;
+  action?: string;
 }
 
 interface TokenResponse {
@@ -50,6 +52,31 @@ const Mirror: React.FC = () => {
 
   // Rotation state
   const [rotation, setRotation] = useState<number>(0);
+
+  // Audio playback function
+  const playMirrorActivationSound = () => {
+    try {
+      console.log('🔊 Playing mirror activation sound...');
+      // Create audio element and play the sound
+      const audio = new Audio('/mirror.wav'); // Audio file should be in public folder
+      audio.volume = 0.8;
+      audio.play().then(() => {
+        console.log('✅ Mirror activation sound played successfully');
+      }).catch((error) => {
+        console.log('❌ Failed to play mirror activation sound:', error);
+        // Fallback: try different audio file or path
+        try {
+          const fallbackAudio = new Audio('/audio/mirror-activation.wav');
+          fallbackAudio.volume = 0.8;
+          fallbackAudio.play();
+        } catch (fallbackError) {
+          console.log('❌ Fallback audio also failed:', fallbackError);
+        }
+      });
+    } catch (error) {
+      console.log('❌ Error creating audio element:', error);
+    }
+  };
 
   // Use device permissions hook
   const {
@@ -149,6 +176,13 @@ const Mirror: React.FC = () => {
               if (data.current_text) {
                 console.log('📝 Setting initial text from connection');
                 setMirrorText(data.current_text);
+              }
+              break;
+              
+            case 'audio_play':
+              console.log('🔊 Processing audio play event...');
+              if (data.action === 'play_mirror_sound') {
+                playMirrorActivationSound();
               }
               break;
               

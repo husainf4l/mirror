@@ -3,7 +3,7 @@ import LiveKitWrapper from '../LiveKitWrapper';
 import { useDevicePermissions } from '../hooks/useDevicePermissions';
 import './LiveKitRoom.css';
 
-const serverUrl = process.env.REACT_APP_LIVEKIT_URL || 'wss://mirror-je9mbmgp.livekit.cloud';
+const serverUrl = process.env.REACT_APP_LIVEKIT_URL || 'wss://widdai-aphl2lb9.livekit.cloud';
 const apiUrl = process.env.REACT_APP_API_URL || '';
 
 interface TokenResponse {

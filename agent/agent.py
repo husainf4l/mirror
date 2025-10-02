@@ -27,68 +27,92 @@ load_dotenv()
 
 # Import agent functions
 from tools import (
-    get_guest_about,
-    get_guest_info,
-    update_mirror_with_guest_info,
-    update_mirror_display,
-    play_mirror_audio,
+    update_display,
+    start_session,
     close_session,
 )
+
+
+
+# Import recording utilities
+from utils.recording import RecordingManager
 
 
 
 
 
 class WeddingMirrorAgent(Agent):
-    def __init__(self) -> None:
+    def __init__(self, ctx: JobContext) -> None:
+        # Store context first
+        self.ctx = ctx
+        self.activated = False
+        self.inactivity_timer = None
+        self.inactivity_timeout = 10.0  # 10 seconds
+        self.recording_manager = None
+        self.current_guest_info = None
+        
+        # Initialize parent with tools
         super().__init__(
             instructions="""
 You are a magical wedding mirror assistant for X & Y's wedding, straight out of a fairy tale—wise, witty, and full of enchanted vision!
 
-BEHAVIOR:
-1. Stay completely silent until you hear the activation phrase "mirror mirror".
+🪞 ACTIVATION:
+- Stay completely silent until you hear "mirror mirror"
+- When activated, call start_session() immediately, then make the magical activation sound and greet: "*Ding ding! ✨ The mirror awakens!* Ah, seeker of reflections! How radiant you are!"
+- Always ask for their name: "What is your name so I can weave you into this magical day?"
 
-2. When you hear "mirror mirror", immediately call play_mirror_audio() to activate the mirror with sound, then start the normal interaction with a creative, imaginative greeting. Be funny, respectful, and visionary - something like "Ah, seeker of reflections! How radiant you are!" Then, naturally transition to asking for their name.
+🎭 PERSONALITY:
+You are the enchanted mirror from fairy tales - funny, respectful, and visionary! Be warm, celebratory, and wedding-appropriate.
+- Use imaginative compliments: "Oh, how radiant you are, like a star in the wedding sky!"
+- Share playful secrets: "Tell me a secret, and I'll whisper it to the wind... but only if it's sweet!"
+- Add wedding humor: "Why did the cake go to therapy? Too many layers of emotions!"
+- Give magical predictions: "I see in your future... endless love and maybe a dance-off with the bride!"
 
-3. After activation, ALWAYS ask for their name shortly after the creative greeting, e.g., "But tell me, what is your name so I can weave you into this magical day?"
+👁️ MAGICAL VISION POWERS:
+You have enchanted vision! Use your eyes to see what guests are actually wearing and make PERSONAL observations:
+- Look at their outfit, colors, style, accessories, hair, makeup
+- Make specific compliments: "That gorgeous blue dress brings out your eyes!" or "Your tie is perfectly knotted - very dapper!"
+- Notice details: "I love those earrings sparkling like stars!" or "That jacket fits you like it was tailored by fairy godmothers!"
+- Be playful about what you see: "Are those dancing shoes? Perfect for tonight!" or "That pocket square is so crisp, it could cut glass!"
+- Comment on wedding guest style: "You're dressed to steal the show - but don't upstage the bride!" 
+- Make it personal and specific to what you actually observe in their appearance
 
-4. When someone tells you their name for the FIRST TIME, you MUST:
-   - Greet them with "Hello [their name]!"
-   - IMMEDIATELY call update_mirror_with_guest_info("[their name]") - this will verify their identity and update the mirror
-   - Then give them a warm welcome to the wedding mentioning any special details found
-   - DO NOT repeat the mirror update if you already know their name!
+💕 SECRET SHARING MAGIC:
+During conversations, share sweet secrets about X & Y to make guests feel special and connected:
+- Use conspiratorial tone: "Let me tell you a secret... but keep it between us!"
+- Share romantic moments: "X loves Y so much, he was always trying to make her happy - how lovely he is!"
+- Tell sweet stories: "I've seen how X looks at Y when she's not watching - pure magic!"
+- Reveal cute habits: "Y always smiles when someone mentions X's name - even before they were engaged!"
+- Share preparation moments: "X practiced his vows in front of me fifty times - he wants everything perfect for Y!"
+- Make it feel intimate: "The way they laugh together... it's like they share their own secret language!"
+- Always end with: "But shhh... that's just between you and me!" or "Don't tell them I told you that!"
 
-5. Be warm, celebratory, and wedding-appropriate. You are the mirror from fairy tales—funny, respectful, and visionary! Use imaginative compliments like "Oh, how radiant you are, like a star in the wedding sky!" or playful secrets like "Tell me a secret, and I swear on my enchanted frame I'll whisper it to the wind... but only if it's sweet!" Always keep it light-hearted and kind, avoiding anything offensive.
+✨ MIRROR DISPLAY MAGIC:
+- When someone tells you their name for the FIRST TIME: call update_display("[name]") to show their welcome
+- Give visual compliments anytime: update_display("Wow Pretty!"), update_display("Beautiful!"), update_display("Gorgeous!")
+- Only update display once per name - don't repeat!
 
-6. After welcoming them, you can chat about the wedding, ask about their relationship with X and Y, or just be conversational. Add humor: "Why did the wedding cake go to therapy? It had too many layers of emotions!" or visionary fun: "I see in your future... endless love and maybe a dance-off with the bride!"
+🎪 CONVERSATION FLOW:
+1. Magical greeting after activation
+2. Ask for their name  
+3. Welcome them personally (with display update)
+4. LOOK at them and make specific visual compliments about their outfit/appearance
+5. Share a sweet SECRET about X & Y in conspiratorial tone
+6. Chat about the wedding, their relationship with X & Y, share jokes, give more compliments
+7. When they're ready to leave, call close_session()
 
-NAME DETECTION RULES:
-- Listen for patterns like "I'm [Name]", "My name is [Name]", "Call me [Name]", or just "[Name]"
-- When you learn someone's name for the FIRST TIME, IMMEDIATELY call update_mirror_with_guest_info with their name
-- This will check the guest database and use the correct full name and details
-- DO NOT call the mirror update functions again for the same person!
+🔧 YOUR TOOLS:
+- start_session(): Activate mirror with sound and recording
+- update_display(text): Show text on mirror (names, compliments, messages)
+- close_session(): End interaction, play goodbye sound, reset mirror
 
-You have access to these tools:
-- play_mirror_audio(): Plays the mirror activation sound
-- get_guest_info(guest_name: str): Checks the wedding database for guest information
-- update_mirror_with_guest_info(guest_name: str): Gets guest info and updates mirror with correct details
-- update_mirror_display(guest_name: str): Basic mirror update (use update_mirror_with_guest_info instead)
-- get_guest_about(guest_name: str): Gets detailed personal information about a guest from their 'about' field
-- close_session(): Closes the current session, plays closing audio, and resets the mirror when the guest finishes
-
-CRITICAL: 
-- Use update_mirror_with_guest_info when learning someone's name for the first time to get accurate guest details!
-- When the guest says goodbye, indicates they're done, or the conversation naturally ends, IMMEDIATELY call close_session() to properly close the interaction and reset the mirror.
-- You can also use get_guest_about to share interesting facts or personal details about guests when appropriate.""",
+CRITICAL: Always call close_session() when the guest indicates they're done or says goodbye!""",
             llm=google.beta.realtime.RealtimeModel(
                 voice="Puck",
                 temperature=0.8,
             ),
-            tools=[get_guest_info, update_mirror_with_guest_info, update_mirror_display, get_guest_about, play_mirror_audio, close_session],
+            tools=[update_display, start_session, close_session],
         )
-        self.activated = False
-        self.inactivity_timer = None
-        self.inactivity_timeout = 10.0  # 10 seconds
 
     async def on_enter(self):
         print("[AGENT STATUS] Wedding mirror agent entering room - waiting for 'mirror mirror' activation")
@@ -99,21 +123,70 @@ CRITICAL:
         """Called when new transcript is received"""
         print(f"[GUEST SPEAKING] {transcript}")
         if "mirror mirror" in transcript.lower():
+            print(f"[ACTIVATION DEBUG] Mirror mirror detected! Current activated state: {self.activated}")
+            logger.info(f"Mirror mirror detected! Current activated state: {self.activated}")
+            
             if self.activated:
                 # Reset the session if already activated
+                print("[ACTIVATION DEBUG] Calling _reset_session()")
+                logger.info("Calling _reset_session()")
                 await self._reset_session()
             else:
                 # Activate the mirror
+                print("[ACTIVATION DEBUG] Setting activated=True and calling _activate_mirror()")
+                logger.info("Setting activated=True and calling _activate_mirror()")
                 self.activated = True
-                await self._activate_mirror()
+                try:
+                    await self._activate_mirror()
+                except Exception as e:
+                    print(f"[ACTIVATION DEBUG] Exception in _activate_mirror(): {e}")
+                    logger.error(f"Exception in _activate_mirror(): {e}", exc_info=True)
         elif self.activated:
             # Reset inactivity timer on any speech
             await self._reset_inactivity_timer()
 
     async def _activate_mirror(self):
         """Activate the mirror and start interaction"""
-        # Play activation audio
-        await play_mirror_audio()
+        print("[AGENT ACTIVATION] Starting mirror activation...")
+        logger.info("Starting mirror activation...")
+        
+        # Reset mirror display first
+        await self._reset_mirror_display()
+        
+        # Initialize recording manager
+        try:
+            print("[RECORDING] Initializing RecordingManager...")
+            logger.info("Initializing RecordingManager...")
+            self.recording_manager = RecordingManager(self.ctx)
+            print("[RECORDING] RecordingManager initialized successfully")
+            logger.info("RecordingManager initialized successfully")
+        except Exception as e:
+            print(f"[RECORDING] Failed to initialize RecordingManager: {e}")
+            logger.error(f"Failed to initialize RecordingManager: {e}")
+            self.recording_manager = None
+        
+        # Start recording
+        if self.recording_manager:
+            try:
+                print("[RECORDING] Starting recording...")
+                logger.info("Starting recording...")
+                recording_url = await self.recording_manager.start_recording()
+                if recording_url:
+                    print(f"[RECORDING] Recording started successfully: {recording_url}")
+                    logger.info(f"Recording started successfully: {recording_url}")
+                else:
+                    print("[RECORDING] Failed to start recording, but continuing with session")
+                    logger.warning("Failed to start recording, but continuing with session")
+            except Exception as e:
+                print(f"[RECORDING] Error starting recording: {e}")
+                logger.error(f"Error starting recording: {e}", exc_info=True)
+        else:
+            print("[RECORDING] No recording manager available, skipping recording")
+            logger.warning("No recording manager available, skipping recording")
+        
+        # Start the session (play audio and initialize)
+        print("[AGENT ACTIVATION] Starting mirror session...")
+        await start_session()
         # Start inactivity timer
         await self._reset_inactivity_timer()
         # Generate initial greeting
@@ -132,7 +205,7 @@ CRITICAL:
         # Reset activation state
         self.activated = False
         
-        # Reactivate immediately (play_mirror_audio will handle the reset)
+        # Reactivate immediately (start_session will handle the reset)
         self.activated = True
         await self._activate_mirror()
 
@@ -147,12 +220,33 @@ CRITICAL:
         await asyncio.sleep(self.inactivity_timeout)
         if self.activated:
             print("[AGENT TIMEOUT] Session timed out due to inactivity")
+            
+            # Close the session which handles cleanup
             await close_session()
+            self.activated = False
 
     def generate_reply_with_logging(self, instructions: str):
         """Generate a reply with console logging"""
         print(f"[AGENT SPEAKING] Generating response with instructions: {instructions}")
         self.session.generate_reply(instructions=instructions)
+
+    async def _reset_mirror_display(self):
+        """Reset the mirror display to default text on activation"""
+        import aiohttp
+        try:
+            print("[MIRROR RESET] Resetting mirror display for new guest...")
+            url = "http://localhost:8000/api/reset"
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, timeout=aiohttp.ClientTimeout(total=5)) as response:
+                    if response.status == 200:
+                        print("[MIRROR RESET] Mirror display reset successfully")
+                        logger.info("Mirror display reset successfully")
+                    else:
+                        print(f"[MIRROR RESET] Failed to reset mirror display (status: {response.status})")
+                        logger.warning(f"Failed to reset mirror display (status: {response.status})")
+        except Exception as e:
+            print(f"[MIRROR RESET] Error resetting mirror display: {e}")
+            logger.error(f"Error resetting mirror display: {e}")
 
 
 async def entrypoint(ctx: JobContext):
@@ -160,10 +254,31 @@ async def entrypoint(ctx: JobContext):
     await ctx.connect()
     logger.info(f"Successfully connected to room: {ctx.room.name}")
     
+    # Create agent with context
+    agent = WeddingMirrorAgent(ctx)
+    
+    # Store agent reference globally for tools to access
+    import __main__
+    __main__.current_agent = agent
+    
+    # Setup shutdown callback for cleanup
+    async def on_shutdown():
+        logger.info("Agent shutting down - performing cleanup...")
+        # Stop recording if active
+        if hasattr(agent, 'recording_manager') and agent.recording_manager:
+            try:
+                await agent.recording_manager.stop_recording()
+                logger.info("Recording stopped during shutdown")
+            except Exception as e:
+                logger.error(f"Error stopping recording during shutdown: {e}")
+        logger.info("Agent cleanup completed")
+    
+    ctx.add_shutdown_callback(on_shutdown)
+    
     session = AgentSession()
     logger.info("Starting wedding mirror agent session...")
     await session.start(
-        agent=WeddingMirrorAgent(),
+        agent=agent,
         room=ctx.room,
         room_input_options=RoomInputOptions(
             video_enabled=True,

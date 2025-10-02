@@ -104,6 +104,28 @@ class LiveKitService:
             "identity": identity
         }
     
+    def get_viewer_connection_details(self, room_name: str, participant_name: str, identity: str) -> dict:
+        """
+        Get connection details for admin viewers (can see/hear but not auto-publish)
+        """
+        token = self.generate_access_token(
+            room_name=room_name, 
+            participant_name=participant_name, 
+            identity=identity,
+            can_publish=True,  # Allow publishing but won't auto-start
+            can_subscribe=True,  # Allow viewing/hearing others
+            can_publish_data=True  # Allow data messages
+        )
+        
+        return {
+            "url": self.url,
+            "token": token,
+            "room_name": room_name,
+            "participant_name": participant_name,
+            "identity": identity,
+            "viewer_mode": True
+        }
+    
     def _generate_admin_token(self, ttl_seconds: int = 300) -> str:
         """
         Generate admin JWT token for LiveKit API authentication.

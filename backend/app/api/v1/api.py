@@ -82,6 +82,36 @@ async def get_livekit_token(request: Request):
             "error": str(e)
         }
 
+@api_router.post("/livekit/viewer-token")
+async def get_livekit_viewer_token(request: Request, authenticated: bool = Depends(require_auth)):
+    """Generate LiveKit viewer token for admins to view rooms"""
+    data = await request.json()
+    
+    room_name = data.get("room", "mirror-room")
+    participant_name = data.get("name", "Admin Viewer")
+    identity = data.get("identity", f"admin-{room_name}")
+    
+    try:
+        connection_details = livekit_service.get_viewer_connection_details(
+            room_name=room_name,
+            participant_name=participant_name,
+            identity=identity
+        )
+        
+        return {
+            "success": True,
+            "token": connection_details["token"],
+            "url": connection_details["url"],
+            "room": room_name,
+            "identity": identity,
+            "viewer_mode": True
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
 @api_router.get("/livekit/config")
 def get_livekit_config():
     """Get LiveKit configuration for frontend"""
@@ -662,6 +692,650 @@ def list_relation_types(authenticated: bool = Depends(require_auth)):
         return JSONResponse({
             "success": False,
             "message": f"Error fetching relation types: {str(e)}"
+        }, status_code=500)
+
+
+# ========================================
+# VIDEO RECORDING ENDPOINTS
+# ========================================
+
+@api_router.get("/videos/{video_id}")
+def get_video_recording(video_id: int, authenticated: bool = Depends(require_auth)):
+    """Get a specific video recording by ID"""
+    try:
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        import os
+        
+        database_url = os.getenv("DATABASE_URL")
+        sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+        
+        engine = create_engine(sync_database_url)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        from models import VideoRecording, Guest
+        
+        # Get video recording with guest info
+        recording = session.query(VideoRecording).filter_by(id=video_id, is_available=True).first()
+        
+        if not recording:
+            session.close()
+            return JSONResponse({
+                "success": False,
+                "message": "Video recording not found"
+            }, status_code=404)
+        
+        # Get guest info if available
+        guest_info = None
+        if recording.guest_id:
+            guest = session.query(Guest).filter_by(id=recording.guest_id).first()
+            if guest:
+                guest_info = {
+                    "id": guest.id,
+                    "full_name": guest.full_name,
+                    "phone": guest.phone,
+                    "seat_number": guest.seat_number,
+                    "relation": guest.relation
+                }
+        
+        session.close()
+        
+        result = recording.to_dict()
+        if guest_info:
+            result["guest_details"] = guest_info
+        
+        return JSONResponse({
+            "success": True,
+            "recording": result
+        })
+        
+    except Exception as e:
+        print(f"Error fetching video recording: {e}")
+        return JSONResponse({
+            "success": False,
+            "message": f"Error fetching video recording: {str(e)}"
+        }, status_code=500)
+
+
+@api_router.post("/videos")
+def create_video_recording(request: Request, authenticated: bool = Depends(require_auth)):
+    """Create a new video recording record"""
+    try:
+        import json
+        body = asyncio.run(request.body())
+        data = json.loads(body.decode())
+        
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        import os
+        from datetime import datetime
+        
+        database_url = os.getenv("DATABASE_URL")
+        sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+        
+        engine = create_engine(sync_database_url)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        from models import VideoRecording
+        
+        # Parse recording_started_at if provided
+        recording_started_at = None
+        if data.get("recording_started_at"):
+            try:
+                recording_started_at = datetime.fromisoformat(data["recording_started_at"].replace("Z", "+00:00"))
+            except ValueError:
+                recording_started_at = datetime.utcnow()
+        
+        # Create new video recording
+        new_recording = VideoRecording(
+            room_id=data.get("room_id", ""),
+            video_url=data.get("video_url", ""),
+            presigned_url=data.get("presigned_url"),
+            egress_id=data.get("egress_id"),
+            guest_id=data.get("guest_id"),
+            guest_name=data.get("guest_name"),
+            guest_phone=data.get("guest_phone"),
+            guest_relation=data.get("guest_relation"),
+            guest_table=data.get("guest_table"),
+            recording_started_at=recording_started_at,
+            recording_ended_at=None,  # Will be updated when recording ends
+            duration_seconds=data.get("duration_seconds"),
+            file_size_bytes=data.get("file_size_bytes"),
+            processing_status="pending",
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        
+        session.add(new_recording)
+        session.commit()
+        
+        recording_id = new_recording.id
+        session.refresh(new_recording)
+        session.close()
+        
+        return JSONResponse({
+            "success": True,
+            "message": "Video recording created successfully",
+            "recording_id": recording_id
+        })
+        
+    except Exception as e:
+        print(f"Error creating video recording: {e}")
+        return JSONResponse({
+            "success": False,
+            "message": f"Error creating video recording: {str(e)}"
+        }, status_code=500)
+
+
+@api_router.post("/videos/simple")
+def create_simple_video_record():
+    """Create a simple video record immediately when recording starts - no auth needed for agent"""
+    try:
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        import os
+        from datetime import datetime
+        
+        database_url = os.getenv("DATABASE_URL")
+        sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+        
+        engine = create_engine(sync_database_url)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        import sys
+        sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+        from models import VideoRecording
+        
+        # Generate filename for video
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"recordings/wedding_mirror_{timestamp}.mp4"
+        
+        # Generate S3 URL
+        bucket_name = os.getenv("AWS_BUCKET_NAME", "4wk-garage-media")
+        region = os.getenv("AWS_REGION", "me-central-1")
+        s3_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/{filename}"
+        
+        # Generate presigned URL for immediate access
+        try:
+            import boto3
+            from botocore.exceptions import NoCredentialsError
+            
+            region = os.getenv("AWS_REGION", "me-central-1")
+            s3_client = boto3.client(
+                "s3",
+                aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+                aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+                region_name=region,
+            )
+
+            presigned_url = s3_client.generate_presigned_url(
+                "get_object",
+                Params={
+                    "Bucket": bucket_name,
+                    "Key": filename,
+                },
+                ExpiresIn=86400 * 7,  # 7 days
+            )
+        except Exception as e:
+            print(f"Could not generate presigned URL: {e}")
+            presigned_url = None
+
+        # Create simple video recording with just date and URL
+        new_recording = VideoRecording(
+            room_id="mirror-room",
+            video_url=s3_url,
+            presigned_url=presigned_url,
+            recording_started_at=datetime.utcnow(),
+            processing_status="recording",
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        
+        session.add(new_recording)
+        session.commit()
+        
+        recording_id = new_recording.id
+        session.refresh(new_recording)
+        session.close()
+        
+        return JSONResponse({
+            "success": True,
+            "recording_id": recording_id,
+            "video_url": s3_url,
+            "filename": filename
+        })
+        
+    except Exception as e:
+        print(f"Error creating simple video record: {e}")
+        return JSONResponse({
+            "success": False,
+            "message": f"Error creating simple video record: {str(e)}"
+        }, status_code=500)
+
+
+@api_router.get("/videos")
+def list_video_recordings(authenticated: bool = Depends(require_auth)):
+    """Get all video recordings"""
+    try:
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        import os
+        
+        database_url = os.getenv("DATABASE_URL")
+        sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+        
+        engine = create_engine(sync_database_url)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        import sys
+        sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+        from models import VideoRecording
+        
+        recordings = session.query(VideoRecording).order_by(VideoRecording.created_at.desc()).all()
+        
+        recordings_list = []
+        for recording in recordings:
+            recordings_list.append({
+                "id": recording.id,
+                "room_id": recording.room_id,
+                "video_url": recording.video_url,
+                "presigned_url": recording.presigned_url,
+                "egress_id": recording.egress_id,
+                "guest_name": recording.guest_name,
+                "guest_id": recording.guest_id,
+                "guest_phone": recording.guest_phone,
+                "guest_relation": recording.guest_relation,
+                "guest_table": recording.guest_table,
+                "recording_started_at": recording.recording_started_at.isoformat() if recording.recording_started_at else None,
+                "recording_ended_at": recording.recording_ended_at.isoformat() if recording.recording_ended_at else None,
+                "file_size_bytes": recording.file_size_bytes,
+                "duration_seconds": recording.duration_seconds,
+                "status": recording.processing_status,
+                "created_at": recording.created_at.isoformat() if recording.created_at else None,
+                "updated_at": recording.updated_at.isoformat() if recording.updated_at else None
+            })
+        
+        session.close()
+        
+        return JSONResponse({
+            "success": True,
+            "recordings": recordings_list,
+            "total": len(recordings_list)
+        })
+        
+    except Exception as e:
+        print(f"Error fetching video recordings: {e}")
+        return JSONResponse({
+            "success": False,
+            "message": f"Error fetching video recordings: {str(e)}"
+        }, status_code=500)
+
+
+@api_router.get("/videos/room/{room_id}")
+def get_videos_by_room(room_id: str):
+    """Get all video recordings for a specific room"""
+    try:
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        import os
+        
+        database_url = os.getenv("DATABASE_URL")
+        sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+        
+        engine = create_engine(sync_database_url)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        import sys
+        sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+        from models import VideoRecording
+        
+        recordings = session.query(VideoRecording).filter_by(room_id=room_id).order_by(VideoRecording.created_at.desc()).all()
+        
+        recordings_list = []
+        for recording in recordings:
+            recordings_list.append({
+                "id": recording.id,
+                "room_id": recording.room_id,
+                "video_url": recording.video_url,
+                "presigned_url": recording.presigned_url,
+                "egress_id": recording.egress_id,
+                "guest_name": recording.guest_name,
+                "guest_id": recording.guest_id,
+                "guest_phone": recording.guest_phone,
+                "guest_relation": recording.guest_relation,
+                "guest_table": recording.guest_table,
+                "recording_started_at": recording.recording_started_at.isoformat() if recording.recording_started_at else None,
+                "recording_ended_at": recording.recording_ended_at.isoformat() if recording.recording_ended_at else None,
+                "file_size_bytes": recording.file_size_bytes,
+                "duration_seconds": recording.duration_seconds,
+                "status": recording.processing_status,
+                "created_at": recording.created_at.isoformat() if recording.created_at else None,
+                "updated_at": recording.updated_at.isoformat() if recording.updated_at else None
+            })
+        
+        session.close()
+        
+        return JSONResponse({
+            "success": True,
+            "recordings": recordings_list,
+            "total": len(recordings_list),
+            "room_id": room_id
+        })
+        
+    except Exception as e:
+        print(f"Error fetching videos for room {room_id}: {e}")
+        return JSONResponse({
+            "success": False,
+            "message": f"Error fetching videos for room {room_id}: {str(e)}"
+        }, status_code=500)
+
+
+@api_router.get("/videos/guest/{guest_name}")
+def get_videos_by_guest(guest_name: str):
+    """Get all video recordings for a specific guest"""
+    try:
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        import os
+        
+        database_url = os.getenv("DATABASE_URL")
+        sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+        
+        engine = create_engine(sync_database_url)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        import sys
+        sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+        from models import VideoRecording
+        
+        # Search by guest name (case insensitive)
+        recordings = session.query(VideoRecording).filter(
+            VideoRecording.guest_name.ilike(f"%{guest_name}%")
+        ).order_by(VideoRecording.created_at.desc()).all()
+        
+        recordings_list = []
+        for recording in recordings:
+            recordings_list.append({
+                "id": recording.id,
+                "room_id": recording.room_id,
+                "video_url": recording.video_url,
+                "presigned_url": recording.presigned_url,
+                "egress_id": recording.egress_id,
+                "guest_name": recording.guest_name,
+                "guest_id": recording.guest_id,
+                "guest_phone": recording.guest_phone,
+                "guest_relation": recording.guest_relation,
+                "guest_table": recording.guest_table,
+                "recording_started_at": recording.recording_started_at.isoformat() if recording.recording_started_at else None,
+                "recording_ended_at": recording.recording_ended_at.isoformat() if recording.recording_ended_at else None,
+                "file_size_bytes": recording.file_size_bytes,
+                "duration_seconds": recording.duration_seconds,
+                "status": recording.processing_status,
+                "created_at": recording.created_at.isoformat() if recording.created_at else None,
+                "updated_at": recording.updated_at.isoformat() if recording.updated_at else None
+            })
+        
+        session.close()
+        
+        return JSONResponse({
+            "success": True,
+            "recordings": recordings_list,
+            "total": len(recordings_list),
+            "guest_name": guest_name
+        })
+        
+    except Exception as e:
+        print(f"Error fetching videos for guest {guest_name}: {e}")
+        return JSONResponse({
+            "success": False,
+            "message": f"Error fetching videos for guest {guest_name}: {str(e)}"
+        }, status_code=500)
+
+
+@api_router.put("/videos/{recording_id}/complete")
+def complete_video_recording(recording_id: int):
+    """Mark video recording as completed when reset is called - no auth needed for agent"""
+    try:
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        import os
+        from datetime import datetime
+        
+        database_url = os.getenv("DATABASE_URL")
+        sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+        
+        engine = create_engine(sync_database_url)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        import sys
+        sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+        from models import VideoRecording
+        
+        recording = session.query(VideoRecording).filter_by(id=recording_id).first()
+        if not recording:
+            session.close()
+            return JSONResponse({
+                "success": False,
+                "message": "Video recording not found"
+            }, status_code=404)
+        
+        # Update recording as completed
+        recording.recording_ended_at = datetime.utcnow()
+        recording.processing_status = "completed"
+        recording.updated_at = datetime.utcnow()
+        
+        session.commit()
+        session.close()
+        
+        return JSONResponse({
+            "success": True,
+            "message": "Video recording marked as completed"
+        })
+        
+    except Exception as e:
+        print(f"Error completing video recording: {e}")
+        return JSONResponse({
+            "success": False,
+            "message": f"Error completing video recording: {str(e)}"
+        }, status_code=500)
+
+
+@api_router.put("/videos/{recording_id}")
+def update_video_recording(recording_id: int, request: Request, authenticated: bool = Depends(require_auth)):
+    """Update an existing video recording"""
+    try:
+        import json
+        body = asyncio.run(request.body())
+        data = json.loads(body.decode())
+        
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        import os
+        from datetime import datetime
+        
+        database_url = os.getenv("DATABASE_URL")
+        sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+        
+        engine = create_engine(sync_database_url)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        import sys
+        sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+        from models import VideoRecording
+        
+        recording = session.query(VideoRecording).filter_by(id=recording_id).first()
+        if not recording:
+            session.close()
+            return JSONResponse({
+                "success": False,
+                "message": "Video recording not found"
+            }, status_code=404)
+        
+        # Update fields
+        if "presigned_url" in data:
+            recording.presigned_url = data["presigned_url"]
+        if "recording_ended_at" in data:
+            recording.recording_ended_at = datetime.fromisoformat(data["recording_ended_at"])
+        if "file_size_bytes" in data:
+            recording.file_size_bytes = data["file_size_bytes"]
+        if "duration_seconds" in data:
+            recording.duration_seconds = data["duration_seconds"]
+        if "status" in data:
+            recording.processing_status = data["status"]
+        
+        recording.updated_at = datetime.utcnow()
+        
+        session.commit()
+        session.close()
+        
+        return JSONResponse({
+            "success": True,
+            "message": "Video recording updated successfully"
+        })
+        
+    except Exception as e:
+        print(f"Error updating video recording: {e}")
+        return JSONResponse({
+            "success": False,
+            "message": f"Error updating video recording: {str(e)}"
+        }, status_code=500)
+
+
+@api_router.delete("/videos/{recording_id}")
+def delete_video_recording(recording_id: int, authenticated: bool = Depends(require_auth)):
+    """Delete a video recording"""
+    try:
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        import os
+        
+        database_url = os.getenv("DATABASE_URL")
+        sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+        
+        engine = create_engine(sync_database_url)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        import sys
+        sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+        from models import VideoRecording
+        
+        recording = session.query(VideoRecording).filter_by(id=recording_id).first()
+        if not recording:
+            session.close()
+            return JSONResponse({
+                "success": False,
+                "message": "Video recording not found"
+            }, status_code=404)
+        
+        session.delete(recording)
+        session.commit()
+        session.close()
+        
+        return JSONResponse({
+            "success": True,
+            "message": "Video recording deleted successfully"
+        })
+        
+    except Exception as e:
+        print(f"Error deleting video recording: {e}")
+        return JSONResponse({
+            "success": False,
+            "message": f"Error deleting video recording: {str(e)}"
+        }, status_code=500)
+
+
+@api_router.post("/videos/{recording_id}/refresh")
+def refresh_presigned_url(recording_id: int):
+    """Refresh the presigned URL for a video recording"""
+    try:
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        import os
+        from datetime import datetime
+        
+        database_url = os.getenv("DATABASE_URL")
+        sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+        
+        engine = create_engine(sync_database_url)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        import sys
+        sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+        from models import VideoRecording
+        
+        recording = session.query(VideoRecording).filter_by(id=recording_id).first()
+        if not recording:
+            session.close()
+            return JSONResponse({
+                "success": False,
+                "message": "Video recording not found"
+            }, status_code=404)
+        
+        # Generate new presigned URL
+        try:
+            import boto3
+            from botocore.exceptions import NoCredentialsError
+            
+            # Extract S3 key from video URL
+            if "amazonaws.com/" in recording.video_url:
+                s3_key = recording.video_url.split("amazonaws.com/")[-1]
+            else:
+                session.close()
+                return JSONResponse({
+                    "success": False,
+                    "message": "Invalid S3 URL format"
+                }, status_code=400)
+            
+            region = os.getenv("AWS_REGION", "me-central-1")
+            s3_client = boto3.client(
+                "s3",
+                aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+                aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+                region_name=region,
+            )
+
+            new_presigned_url = s3_client.generate_presigned_url(
+                "get_object",
+                Params={
+                    "Bucket": os.getenv("AWS_BUCKET_NAME", "4wk-garage-media"),
+                    "Key": s3_key,
+                },
+                ExpiresIn=86400 * 7,  # 7 days
+            )
+            
+            recording.presigned_url = new_presigned_url
+            recording.updated_at = datetime.utcnow()
+            session.commit()
+            session.close()
+            
+            return JSONResponse({
+                "success": True,
+                "message": "Presigned URL refreshed successfully",
+                "new_presigned_url": new_presigned_url
+            })
+            
+        except Exception as e:
+            session.close()
+            return JSONResponse({
+                "success": False,
+                "message": f"Failed to generate presigned URL: {str(e)}"
+            }, status_code=500)
+        
+    except Exception as e:
+        print(f"Error refreshing presigned URL: {e}")
+        return JSONResponse({
+            "success": False,
+            "message": f"Error refreshing presigned URL: {str(e)}"
         }, status_code=500)
 
 

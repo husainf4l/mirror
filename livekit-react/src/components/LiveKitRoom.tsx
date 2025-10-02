@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import LiveKitWrapper from '../LiveKitWrapper';
 import { useDevicePermissions } from '../hooks/useDevicePermissions';
 import './LiveKitRoom.css';
 
-const serverUrl = process.env.REACT_APP_LIVEKIT_URL || 'wss://mirror-je9mbmgp.livekit.cloud';
+const serverUrl = process.env.REACT_APP_LIVEKIT_URL || 'wss://widdai-aphl2lb9.livekit.cloud';
 const apiUrl = process.env.REACT_APP_API_URL || '';
 
 interface TokenResponse {
@@ -14,6 +15,7 @@ interface TokenResponse {
 }
 
 const LiveKitRoom: React.FC = () => {
+  const navigate = useNavigate();
   const [token, setToken] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
   const [roomName, setRoomName] = useState<string>('mirror-room');
@@ -22,6 +24,23 @@ const LiveKitRoom: React.FC = () => {
   const [error, setError] = useState<string>('');
   const [selectedCamera, setSelectedCamera] = useState<string>('');
   const [selectedMicrophone, setSelectedMicrophone] = useState<string>('');
+  const [isViewerMode, setIsViewerMode] = useState<boolean>(false);
+
+  // Check URL parameters for viewer mode
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewerToken = urlParams.get('token');
+    const roomParam = urlParams.get('room');
+    const viewerMode = urlParams.get('viewer') === 'true';
+
+    if (viewerToken && viewerMode) {
+      setToken(viewerToken);
+      setRoomName(roomParam || 'mirror-room');
+      setUserName('Admin Viewer');
+      setIsViewerMode(true);
+      setIsConnected(true);
+    }
+  }, []);
 
   // Use our custom device permissions hook
   const {
@@ -96,6 +115,11 @@ const LiveKitRoom: React.FC = () => {
     setToken('');
     setIsConnected(false);
     setError('');
+    
+    // If in viewer mode, navigate back to control panel
+    if (isViewerMode) {
+      navigate('/control');
+    }
   };
 
   const resetMirror = async () => {
@@ -122,14 +146,30 @@ const LiveKitRoom: React.FC = () => {
     return (
       <div className="livekit-page">
         <div className="room-header">
-          <h1>🎥 Wedding Mirror - Video Room</h1>
+          <h1>
+            {isViewerMode ? '👁️ Room Viewer' : '🎥 Wedding Mirror - Video Room'}
+          </h1>
           <div className="room-info">
             <span>Room: {roomName}</span>
             <span>User: {userName}</span>
+            {isViewerMode && (
+              <span className="viewer-badge" style={{
+                background: 'linear-gradient(135deg, #007aff, #5ac8fa)',
+                color: 'white',
+                padding: '4px 8px',
+                borderRadius: '12px',
+                fontSize: '0.8rem',
+                fontWeight: '600'
+              }}>
+                👁️ Viewer Mode
+              </span>
+            )}
             <div className="header-buttons">
-              <button onClick={resetMirror} className="mirror-btn">
-                🪞 Reset Mirror
-              </button>
+              {!isViewerMode && (
+                <button onClick={resetMirror} className="mirror-btn">
+                  🪞 Reset Mirror
+                </button>
+              )}
               <button onClick={() => openWindow('/control')} className="control-btn">
                 ⚙️ Control Panel
               </button>
@@ -143,10 +183,18 @@ const LiveKitRoom: React.FC = () => {
         <LiveKitWrapper
           token={token}
           serverUrl={serverUrl}
-          onConnected={() => console.log('Connected to room')}
+          viewerMode={isViewerMode}
+          onConnected={() => console.log(`Connected to room ${isViewerMode ? '(viewer)' : ''}`)}
           onDisconnected={() => {
             console.log('Disconnected from room');
-            handleDisconnect();
+            setToken('');
+            setIsConnected(false);
+            setError('');
+            
+            // If in viewer mode, navigate back to control panel
+            if (isViewerMode) {
+              navigate('/control');
+            }
           }}
         />
       </div>

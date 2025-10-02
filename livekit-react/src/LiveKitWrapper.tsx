@@ -7,6 +7,7 @@ interface LiveKitWrapperProps {
   enableAudio?: boolean;
   selectedCamera?: string;
   selectedMicrophone?: string;
+  viewerMode?: boolean;
   onConnected?: () => void;
   onDisconnected?: () => void;
 }
@@ -18,6 +19,7 @@ const LiveKitWrapper: React.FC<LiveKitWrapperProps> = ({
   enableAudio = false,  // Start with audio disabled
   selectedCamera,
   selectedMicrophone,
+  viewerMode = false,
   onConnected, 
   onDisconnected 
 }) => {
@@ -47,18 +49,23 @@ const LiveKitWrapper: React.FC<LiveKitWrapperProps> = ({
 
   // Prepare room options with device constraints
   const roomOptions = {
-    video: enableVideo ? {
+    video: viewerMode ? false : (enableVideo ? {
       deviceId: selectedCamera || undefined
-    } : false,
-    audio: enableAudio ? {
+    } : false),
+    audio: viewerMode ? false : (enableAudio ? {
       deviceId: selectedMicrophone || undefined
-    } : false,
+    } : false),
     token: token,
     serverUrl: serverUrl,
     'data-lk-theme': 'default',
     style: { height: 'calc(100vh - 100px)' },
     onConnected: onConnected,
-    onDisconnected: onDisconnected
+    onDisconnected: onDisconnected,
+    connectOptions: viewerMode ? {
+      autoSubscribe: true,  // Subscribe to other participants
+      publishAudio: false,  // Don't publish audio in viewer mode
+      publishVideo: false   // Don't publish video in viewer mode
+    } : undefined
   };
 
   return React.createElement(

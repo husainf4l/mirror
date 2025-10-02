@@ -26,6 +26,26 @@ interface DeleteRoomsResponse {
   error?: string;
 }
 
+interface VideoRecording {
+  id: number;
+  room_id: string;
+  video_url: string;
+  presigned_url?: string;
+  guest_name?: string;
+  guest_relation?: string;
+  processing_status: string;
+  created_at: string;
+  duration_seconds?: number;
+  file_size_bytes?: number;
+}
+
+interface VideosResponse {
+  success: boolean;
+  recordings: VideoRecording[];
+  total: number;
+  error?: string;
+}
+
 const Control: React.FC = () => {
   const navigate = useNavigate();
   const [customText, setCustomText] = useState<string>('');
@@ -33,6 +53,9 @@ const Control: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [rooms, setRooms] = useState<string[]>([]);
   const [roomsLoading, setRoomsLoading] = useState<boolean>(false);
+  const [videos, setVideos] = useState<VideoRecording[]>([]);
+  const [videosLoading, setVideosLoading] = useState<boolean>(false);
+  const [showVideoDetails, setShowVideoDetails] = useState<boolean>(false);
 
   // Predefined messages
   const messages = {
@@ -195,6 +218,115 @@ const Control: React.FC = () => {
     }
   };
 
+  const listVideos = async () => {
+    try {
+      setVideosLoading(true);
+      updateStatus('Loading video recordings...', 'info');
+      
+      const response = await fetch(`${apiUrl}/api/videos`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data: VideosResponse = await response.json();
+        if (data.success) {
+          setVideos(data.recordings);
+          updateStatus(`✅ Found ${data.total} video recordings`, 'success');
+        } else {
+          throw new Error(data.error || 'Failed to fetch videos');
+        }
+      } else {
+        throw new Error('Failed to fetch videos');
+      }
+    } catch (error) {
+      updateStatus('❌ Error loading videos', 'error');
+      console.error('Error:', error);
+      setVideos([]);
+    } finally {
+      setVideosLoading(false);
+    }
+  };
+
+  const refreshPresignedUrl = async (videoId: number) => {
+    try {
+      updateStatus('Refreshing video link...', 'info');
+      
+      const response = await fetch(`${apiUrl}/api/videos/${videoId}/refresh`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          updateStatus('✅ Video link refreshed', 'success');
+          // Refresh the video list
+          await listVideos();
+        } else {
+          throw new Error(data.error || 'Failed to refresh video link');
+        }
+      } else {
+        throw new Error('Failed to refresh video link');
+      }
+    } catch (error) {
+      updateStatus('❌ Error refreshing video link', 'error');
+      console.error('Error:', error);
+    }
+  };
+
+  const formatFileSize = (bytes?: number): string => {
+    if (!bytes) return 'Unknown';
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    if (bytes === 0) return '0 Bytes';
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const formatDuration = (seconds?: number): string => {
+    if (!seconds) return 'Unknown';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const viewRoom = async (roomName: string) => {
+    try {
+      updateStatus('Getting viewer access...', 'info');
+      
+      // Get viewer token for the room
+      const response = await fetch(`${apiUrl}/api/livekit/viewer-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          room: roomName,
+          name: 'Admin Viewer',
+          identity: `admin-viewer-${Date.now()}`
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          // Open the LiveKit room in viewer mode
+          const viewerUrl = `/livekit?token=${encodeURIComponent(data.token)}&room=${encodeURIComponent(roomName)}&viewer=true`;
+          window.open(viewerUrl, '_blank', 'noopener,noreferrer');
+          updateStatus('✅ Viewer room opened!', 'success');
+        } else {
+          throw new Error(data.error || 'Failed to get viewer token');
+        }
+      } else {
+        throw new Error('Failed to get viewer access');
+      }
+    } catch (error) {
+      updateStatus('❌ Error accessing room', 'error');
+      console.error('Error:', error);
+    }
+  };
+
   return (
     <div className="control-page">
       <div className="container">
@@ -322,13 +454,155 @@ const Control: React.FC = () => {
             </button>
             
             {rooms.length > 0 && (
-              <div className="rooms-list" style={{ marginTop: '10px', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '5px' }}>
-                <strong>Active Rooms ({rooms.length}):</strong>
-                <ul style={{ margin: '5px 0', paddingLeft: '20px' }}>
+              <div className="rooms-list">
+                <strong>Active Rooms ({rooms.length})</strong>
+                <div style={{ 
+                  marginTop: '12px', 
+                  maxHeight: '300px', 
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
+                  paddingRight: '8px' 
+                }}>
                   {rooms.map((room, index) => (
-                    <li key={index} style={{ fontSize: '14px', color: '#666' }}>{room}</li>
+                    <div key={index} className="room-card" style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between',
+                      padding: '12px',
+                      marginBottom: '8px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                      <span>🏠 {room}</span>
+                      <button 
+                        className="btn small primary"
+                        onClick={() => viewRoom(room)}
+                        disabled={loading}
+                      >
+                        👁️ View Room
+                      </button>
+                    </div>
                   ))}
-                </ul>
+                </div>
+              </div>
+            )}
+            
+            {rooms.length === 0 && !roomsLoading && (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#6e6e73', fontSize: '0.9rem' }}>
+                No active rooms found
+              </div>
+            )}
+          </div>
+
+          {/* Video Recording Management */}
+          <div className="control-section">
+            <h3 className="section-title">🎥 Video Recordings</h3>
+            <button 
+              className="btn primary" 
+              onClick={listVideos}
+              disabled={videosLoading || loading}
+            >
+              {videosLoading ? '🔄 Loading...' : '🎥 Load Recordings'}
+            </button>
+            
+            {videos.length > 0 && (
+              <button 
+                className={`btn toggle ${showVideoDetails ? 'active' : ''}`}
+                onClick={() => setShowVideoDetails(!showVideoDetails)}
+              >
+                {showVideoDetails ? '📋 Hide Details' : '📋 Show Details'}
+              </button>
+            )}
+            
+            {videos.length > 0 && (
+              <div className="videos-list">
+                <strong>Video Recordings ({videos.length})</strong>
+                {showVideoDetails ? (
+                  <div style={{ 
+                    marginTop: '12px', 
+                    maxHeight: '400px', 
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    paddingRight: '8px' 
+                  }}>
+                    {videos.map((video) => (
+                      <div key={video.id} className="video-card">
+                        <div className="video-header">
+                          <div className="video-title">
+                            {video.guest_name ? (
+                              <>👤 {video.guest_name}</>
+                            ) : (
+                              <>🏠 {video.room_id}</>
+                            )}
+                          </div>
+                          <span className={`status-badge ${video.processing_status}`}>
+                            {video.processing_status}
+                          </span>
+                        </div>
+                        
+                        <div className="video-meta">
+                          📅 {new Date(video.created_at).toLocaleString()}
+                        </div>
+                        
+                        {video.guest_relation && (
+                          <div className="video-meta">
+                            👥 {video.guest_relation}
+                          </div>
+                        )}
+                        
+                        <div className="video-meta">
+                          ⏱️ {formatDuration(video.duration_seconds)} • 
+                          📁 {formatFileSize(video.file_size_bytes)}
+                        </div>
+                        
+                        <div className="video-actions">
+                          {video.video_url && (
+                            <button 
+                              className="btn small primary"
+                              onClick={() => window.open(video.video_url, '_blank')}
+                            >
+                              🔗 Direct Link
+                            </button>
+                          )}
+                          {video.presigned_url && (
+                            <button 
+                              className="btn small"
+                              onClick={() => window.open(video.presigned_url!, '_blank')}
+                            >
+                              ⏰ Presigned Link
+                            </button>
+                          )}
+                          <button 
+                            className="btn small"
+                            onClick={() => refreshPresignedUrl(video.id)}
+                            disabled={loading}
+                          >
+                            🔄 Refresh
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <ul className="simple-list">
+                    {videos.map((video) => (
+                      <li key={video.id}>
+                        <strong>{video.guest_name || video.room_id}</strong> • 
+                        {new Date(video.created_at).toLocaleDateString()} • 
+                        <span className={`status-badge ${video.processing_status}`} style={{marginLeft: '8px'}}>
+                          {video.processing_status}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+            
+            {videos.length === 0 && !videosLoading && (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#6e6e73', fontSize: '0.9rem' }}>
+                No video recordings found
               </div>
             )}
           </div>

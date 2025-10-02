@@ -14,8 +14,8 @@ interface LiveKitWrapperProps {
 const LiveKitWrapper: React.FC<LiveKitWrapperProps> = ({ 
   token, 
   serverUrl,
-  enableVideo = true,
-  enableAudio = true,
+  enableVideo = false,  // Start with video disabled
+  enableAudio = false,  // Start with audio disabled
   selectedCamera,
   selectedMicrophone,
   onConnected, 

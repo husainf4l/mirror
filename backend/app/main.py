@@ -1,3 +1,9 @@
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from parent directory FIRST
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+
 from fastapi import FastAPI, Request, Form, Cookie, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
@@ -13,6 +19,15 @@ from app.api.v1.api import api_router
 import asyncio
 import json
 from typing import List
+
+# Try to import LiveKit service, but make it optional
+try:
+    from app.core.livekit_service import livekit_service
+    LIVEKIT_AVAILABLE = True
+except ValueError as e:
+    print(f"Warning: LiveKit service not available: {e}")
+    livekit_service = None
+    LIVEKIT_AVAILABLE = False
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -35,7 +50,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )# Store the current mirror text and original text
-original_text = '<span class="line fancy">Welcome to</span><span class="line fancy">Ibrahim & Zaina</span><span class="line fancy">Wedding</span><span class="line script">Say Mirror Mirror to begin</span>'
+original_text = '<span class="line fancy">Welcome to</span><span class="line fancy">x & y</span><span class="line fancy">Wedding</span><span class="line script">Say Mirror Mirror to begin</span>'
 current_text = original_text
 
 # Store connected clients for SSE
@@ -48,14 +63,14 @@ class AudioPlayEvent(BaseModel):
     type: str = "audio_play"
     message: str = "Playing mirror sound effect"
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Mount static files (removed - not needed)
+# app.mount("/static", StaticFiles(directory="../static"), name="static")
 
 # Store connected SSE clients
 connected_clients: List[asyncio.Queue] = []
 
 # Store the current mirror text and original text
-original_text = '<span class="line fancy">Welcome to</span><span class="line fancy">Ibrahim & Zaina</span><span class="line fancy">Wedding</span><span class="line script">Say Mirror Mirror to begin</span>'
+original_text = '<span class="line fancy">Welcome to</span><span class="line fancy">x & y</span><span class="line fancy">Wedding</span><span class="line script">Say Mirror Mirror to begin</span>'
 current_text = original_text
 
 async def broadcast_message(message: dict):
@@ -87,15 +102,6 @@ def root():
 
 # Logout endpoint moved to /api/logout in api_router
 
-@app.get("/audio/mirror")
-def get_mirror_audio():
-    """Get the mirror magic sound effect"""
-    return {
-        "message": "Mirror magic sound effect",
-        "url": "/static/audio/mirror.wav",
-        "type": "audio/wav"
-    }
-
 # Mirror control endpoints
 @app.post("/api/reset")
 async def reset_mirror():
@@ -121,23 +127,7 @@ async def reset_mirror():
         "audio_url": "/static/audio/mirror.wav"
     }
 
-@app.post("/api/play-audio")
-async def trigger_audio():
-    """Trigger audio playback on all connected clients"""
-    audio_message = {
-        "type": "audio_trigger",
-        "message": "Playing mirror magic sound",
-        "audio_url": "/static/audio/mirror.wav"
-    }
-    
-    await broadcast_message(audio_message)
-    
-    return {
-        "success": True,
-        "message": "Audio trigger sent to all clients"
-    }
 
-# Server-Sent Events endpoint moved to /api/events in api_router
 
 @app.post("/api/update-text")
 async def update_text(text_update: TextUpdate):
@@ -170,20 +160,4 @@ async def update_text(text_update: TextUpdate):
         "clients_notified": len(connected_clients)
     }
 
-@app.post("/api/test-audio")
-async def test_audio_trigger():
-    """Test endpoint to trigger audio without changing text"""
-    audio_message = {
-        "type": "audio_trigger",
-        "message": "Test audio trigger"
-    }
-    
-    await broadcast_message(audio_message)
-    
-    return {
-        "success": True,
-        "message": "Audio test trigger sent",
-        "clients_notified": len(connected_clients)
-    }
 
-# LiveKit API routes moved to /api/livekit/* in api_router

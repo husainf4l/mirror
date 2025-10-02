@@ -13,7 +13,7 @@ const Login: React.FC = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/mirror');
+      navigate('/control');
     }
   }, [isAuthenticated, navigate]);
 
@@ -31,7 +31,7 @@ const Login: React.FC = () => {
     try {
       const success = await login(password);
       if (success) {
-        navigate('/mirror');
+        navigate('/control');
       } else {
         setError('Invalid password. Please try again.');
       }

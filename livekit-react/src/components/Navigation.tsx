@@ -45,10 +45,16 @@ const Navigation: React.FC = () => {
             🎥 Video
           </Link>
           <Link 
+            to="/guests" 
+            className={location.pathname === '/guests' ? 'active' : ''}
+          >
+            👥 Guests
+          </Link>
+          <Link 
             to="/admin" 
             className={location.pathname === '/admin' ? 'active' : ''}
           >
-            👥 Admin
+            ⚙️ Admin
           </Link>
         </div>
 

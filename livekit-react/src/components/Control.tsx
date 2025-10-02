@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Control.css';
+
+// Do not add any redirect to mirror in this component. The ProtectedRoute handles authentication.
 
 const apiUrl = process.env.REACT_APP_API_URL || '';
 
@@ -8,14 +11,32 @@ interface StatusType {
   type: 'success' | 'error' | 'warning' | 'info';
 }
 
+interface RoomsResponse {
+  success: boolean;
+  rooms: string[];
+  count: number;
+  error?: string;
+}
+
+interface DeleteRoomsResponse {
+  success: boolean;
+  deleted_count: number;
+  total_rooms?: number;
+  message: string;
+  error?: string;
+}
+
 const Control: React.FC = () => {
+  const navigate = useNavigate();
   const [customText, setCustomText] = useState<string>('');
   const [status, setStatus] = useState<StatusType>({ message: 'Ready to control the mirror ✨', type: 'info' });
   const [loading, setLoading] = useState<boolean>(false);
+  const [rooms, setRooms] = useState<string[]>([]);
+  const [roomsLoading, setRoomsLoading] = useState<boolean>(false);
 
   // Predefined messages
   const messages = {
-    welcome: '<span class="line fancy">Welcome</span><span class="line script">to the magical union of</span><span class="line fancy">Ibrahim & Zaina</span><span class="line script">Wedding</span>',
+    welcome: '<span class="line fancy">Welcome</span><span class="line script">to the magical union of</span><span class="line fancy">x & y</span><span class="line script">Wedding</span>',
     compliment: '<span class="line script">You look</span><span class="line fancy">Absolutely Radiant</span><span class="line script">tonight</span>',
     love: '<span class="line script">Two hearts</span><span class="line fancy">One Love</span><span class="line script">Forever Bound</span>',
     ceremony: '<span class="line fancy">The Ceremony</span><span class="line script">begins soon</span><span class="line fancy">Please be seated</span>',
@@ -111,11 +132,74 @@ const Control: React.FC = () => {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
+  const listRooms = async () => {
+    try {
+      setRoomsLoading(true);
+      updateStatus('Loading rooms...', 'info');
+      
+      const response = await fetch(`${apiUrl}/api/rooms`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data: RoomsResponse = await response.json();
+        if (data.success) {
+          setRooms(data.rooms);
+          updateStatus(`✅ Found ${data.count} active rooms`, 'success');
+        } else {
+          throw new Error(data.error || 'Failed to fetch rooms');
+        }
+      } else {
+        throw new Error('Failed to fetch rooms');
+      }
+    } catch (error) {
+      updateStatus('❌ Error loading rooms', 'error');
+      console.error('Error:', error);
+      setRooms([]);
+    } finally {
+      setRoomsLoading(false);
+    }
+  };
+
+  const deleteAllRooms = async () => {
+    if (!window.confirm('Are you sure you want to delete ALL LiveKit rooms? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      updateStatus('Deleting all rooms...', 'warning');
+      
+      const response = await fetch(`${apiUrl}/api/rooms`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data: DeleteRoomsResponse = await response.json();
+        if (data.success) {
+          updateStatus(`✅ ${data.message}`, 'success');
+          setRooms([]); // Clear the rooms list
+        } else {
+          throw new Error(data.error || 'Failed to delete rooms');
+        }
+      } else {
+        throw new Error('Failed to delete rooms');
+      }
+    } catch (error) {
+      updateStatus('❌ Error deleting rooms', 'error');
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="control-page">
       <div className="container">
         <div className="header">
-          <h1>🪞 Mirror Control Panel</h1>
+          <h1>⚙️ Control Panel</h1>
           <p>Wedding Mirror Management System</p>
         </div>
 
@@ -139,10 +223,17 @@ const Control: React.FC = () => {
             </button>
             <button 
               className="btn" 
-              onClick={() => openWindow('/admin')}
+              onClick={() => navigate('/guests')}
               disabled={loading}
             >
               👥 Guest Management
+            </button>
+            <button 
+              className="btn" 
+              onClick={() => openWindow('/admin')}
+              disabled={loading}
+            >
+              ⚙️ Admin Panel
             </button>
           </div>
 
@@ -210,6 +301,36 @@ const Control: React.FC = () => {
             >
               💃 Dance Floor
             </button>
+          </div>
+
+          {/* LiveKit Room Management */}
+          <div className="control-section">
+            <h3 className="section-title">LiveKit Room Management</h3>
+            <button 
+              className="btn" 
+              onClick={listRooms}
+              disabled={roomsLoading || loading}
+            >
+              🔍 List Active Rooms
+            </button>
+            <button 
+              className="btn warning" 
+              onClick={deleteAllRooms}
+              disabled={loading || roomsLoading}
+            >
+              🗑️ Delete All Rooms
+            </button>
+            
+            {rooms.length > 0 && (
+              <div className="rooms-list" style={{ marginTop: '10px', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '5px' }}>
+                <strong>Active Rooms ({rooms.length}):</strong>
+                <ul style={{ margin: '5px 0', paddingLeft: '20px' }}>
+                  {rooms.map((room, index) => (
+                    <li key={index} style={{ fontSize: '14px', color: '#666' }}>{room}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
 
           {/* Custom Message */}

@@ -24,7 +24,7 @@ interface TokenResponse {
 
 const Mirror: React.FC = () => {
   const [mirrorText, setMirrorText] = useState<string>(
-    '<span class="line fancy">Welcome to</span><span class="line fancy">Ibrahim & Zaina</span><span class="line fancy">Wedding</span><span class="line script">Say Mirror Mirror to begin</span>'
+    '<span class="line fancy">Welcome to</span><span class="line fancy">x & y</span><span class="line fancy">Wedding</span><span class="line script">Say Mirror Mirror to begin</span>'
   );
   const [connected, setConnected] = useState<boolean>(false);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -32,12 +32,16 @@ const Mirror: React.FC = () => {
   // LiveKit states
   const [token, setToken] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
-  const [roomName, setRoomName] = useState<string>('mirror-room');
+  const [roomName, setRoomName] = useState<string>('wedding-mirror-guest');
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [showVideoControls, setShowVideoControls] = useState<boolean>(false);
   const hasAutoConnected = useRef<boolean>(false);
+
+  // Audio and video enable states
+  const [audioEnabled, setAudioEnabled] = useState<boolean>(false);
+  const [videoEnabled, setVideoEnabled] = useState<boolean>(false);
 
   // Use device permissions hook
   const {
@@ -48,12 +52,23 @@ const Mirror: React.FC = () => {
     error: permissionError,
   } = useDevicePermissions();
 
-  // LiveKit token function
+  // Enable audio and video when permissions are granted
+  useEffect(() => {
+    if (permissions.microphone === 'granted' && !audioEnabled) {
+      console.log('🎤 Microphone permissions granted - enabling audio');
+      setAudioEnabled(true);
+    }
+    if (permissions.camera === 'granted' && !videoEnabled) {
+      console.log('📹 Camera permissions granted - enabling video');
+      setVideoEnabled(true);
+    }
+  }, [permissions.microphone, permissions.camera, audioEnabled, videoEnabled]);
   const getToken = async (room: string, name: string): Promise<string> => {
     setLoading(true);
     setError('');
     
     try {
+      console.log('🌐 Requesting token from:', `${apiUrl}/api/livekit/token`);
       const response = await fetch(`${apiUrl}/api/livekit/token`, {
         method: 'POST',
         headers: {
@@ -67,12 +82,19 @@ const Mirror: React.FC = () => {
         })
       });
 
+      console.log('📡 Token API response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
       const data: TokenResponse = await response.json();
       
       if (!data.success) {
         throw new Error(data.error || 'Failed to get token');
       }
 
+      console.log('✅ Token API response successful');
       return data.token || '';
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -170,49 +192,43 @@ const Mirror: React.FC = () => {
   useEffect(() => {
     const autoConnect = async () => {
       if (hasAutoConnected.current || isConnected) {
-        console.log('🔄 Auto-connect skipped - already attempted or connected', { 
-          hasAutoConnected: hasAutoConnected.current, 
-          isConnected 
+        console.log('🔄 Auto-connect skipped - already attempted or connected', {
+          hasAutoConnected: hasAutoConnected.current,
+          isConnected
         });
         return;
       }
 
       hasAutoConnected.current = true;
       console.log('🎤 Starting auto-connect process for wedding mirror...');
-      console.log('📊 Current permissions:', { 
-        camera: permissions.camera, 
-        microphone: permissions.microphone 
-      });
 
       try {
         // Request permissions automatically
         console.log('🔒 Requesting device permissions...');
         await requestPermissions();
         console.log('✅ Permission request completed');
-        
+
         // Wait for permissions to be processed
         setTimeout(async () => {
-          console.log('📊 Checking permissions after delay:', { 
-            camera: permissions.camera, 
-            microphone: permissions.microphone 
+          console.log('📊 Checking permissions after delay:', {
+            camera: permissions.camera,
+            microphone: permissions.microphone
           });
-          
-          const cameraGranted = (permissions.camera as string) === 'granted';
-          const micGranted = (permissions.microphone as string) === 'granted';
-          
-          if (cameraGranted && micGranted && !isConnected) {
-            console.log('🎭 Permissions granted! Auto-connecting to wedding mirror...');
-            
+
+          // For now, let's try to connect even if permissions aren't granted
+          // The LiveKit components will handle permission requests
+          if (!isConnected) {
+            console.log('🎭 Auto-connecting to wedding mirror (permissions may be requested later)...');
+
             // Generate random room and guest name for auto-connect
             const randomRoom = `mirror-${Date.now()}`;
             const randomGuest = `Guest-${Date.now()}`;
             setRoomName(randomRoom);
             setUserName(randomGuest);
-            
+
             try {
-              console.log('🎫 Getting LiveKit token...');
               const roomToken = await getToken(randomRoom, randomGuest);
-              console.log('🎫 Token received, connecting to room...');
+              console.log('🎫 Token received, connecting to room...', roomToken ? 'Token OK' : 'Token failed');
               setToken(roomToken);
               setIsConnected(true);
               console.log('✨ Wedding mirror connection established!');
@@ -221,14 +237,9 @@ const Mirror: React.FC = () => {
               hasAutoConnected.current = false; // Allow retry on error
             }
           } else {
-            console.log('❌ Permissions not granted or already connected:', {
-              cameraGranted,
-              micGranted,
-              isConnected
-            });
-            hasAutoConnected.current = false; // Allow retry if permissions not granted
+            console.log('ℹ️ Already connected, skipping auto-connect');
           }
-        }, 3000); // Increased to 3 seconds
+        }, 1000); // Reduced to 1 second
       } catch (error) {
         console.error('❌ Permission request failed:', error);
         hasAutoConnected.current = false; // Allow retry on error
@@ -237,35 +248,18 @@ const Mirror: React.FC = () => {
 
     // Start auto-connect process
     autoConnect();
-  }, [requestPermissions, permissions.camera, permissions.microphone, isConnected, roomName]); // Dependencies but won't cause infinite loop due to ref guard
+  }, [requestPermissions, isConnected]); // Simplified dependencies
 
   const handleConnect = async () => {
-    // Check if we have necessary permissions
-    const needsCamera = (permissions.camera as string) !== 'granted';
-    const needsMic = (permissions.microphone as string) !== 'granted';
-    
-    if (needsCamera || needsMic) {
-      console.log('🔒 Requesting permissions first...');
-      try {
-        await requestPermissions();
-        // Wait a moment for permissions to be processed
-        setTimeout(() => handleConnect(), 1000);
-        return;
-      } catch (error) {
-        setError('Camera and microphone permissions are required');
-        return;
-      }
-    }
-
     try {
       // Generate random room and guest name
       const randomRoom = `mirror-${Date.now()}`;
       const randomGuest = `Guest-${Date.now()}`;
-      
+
       console.log('🎭 Connecting to mirror with random credentials...');
       setRoomName(randomRoom);
       setUserName(randomGuest);
-      
+
       const roomToken = await getToken(randomRoom, randomGuest);
       setToken(roomToken);
       setIsConnected(true);
@@ -325,8 +319,15 @@ const Mirror: React.FC = () => {
           <LiveKitWrapper
             token={token}
             serverUrl={serverUrl}
-            onConnected={() => console.log('✨ Wedding mirror agent connected - ready for magic!')}
-            onDisconnected={handleDisconnect}
+            enableAudio={audioEnabled}
+            enableVideo={videoEnabled}
+            onConnected={() => {
+              console.log('✨ Wedding mirror connected to room - agent can now see and hear you!');
+            }}
+            onDisconnected={() => {
+              console.log('❌ Wedding mirror disconnected from room');
+              handleDisconnect();
+            }}
           />
         </div>
       )}
@@ -369,15 +370,10 @@ const Mirror: React.FC = () => {
               {/* Connect Button */}
               <button 
                 onClick={handleConnect}
-                disabled={
-                  loading || 
-                  (permissions.camera as string) !== 'granted' || 
-                  (permissions.microphone as string) !== 'granted' ||
-                  !userName.trim()
-                } 
+                disabled={loading || isConnected}
                 className="connect-btn-compact"
               >
-                {loading ? '🔄 Connecting...' : '� Talk to Mirror'}
+                {loading ? '🔄 Connecting...' : isConnected ? '🎭 Connected' : '🎭 Talk to Mirror'}
               </button>
             </div>
           )}

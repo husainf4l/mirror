@@ -1,14 +1,38 @@
+# Core FastAPI and web framework
 fastapi==0.118.0
 uvicorn[standard]==0.37.0
 jinja2==3.1.6
 python-multipart==0.0.20
+pydantic-settings==2.0.3
+
+# LiveKit agents and plugins
 livekit-agents[google,images]~=1.0,>=1.0.18
 livekit-plugins-noise-cancellation~=0.2
+
+# Environment and configuration
 python-dotenv
-asyncio
+
+# Database
 sqlalchemy==2.0.23
 asyncpg==0.29.0
 alembic==1.12.1
 psycopg2-binary==2.9.10
+greenlet==3.2.4
+
+# Excel processing and data management
 pandas==2.1.4
 openpyxl==3.1.2
+
+# HTTP and file operations
+requests
+aiohttp==3.12.15
+aiofiles==24.1.0
+
+# Authentication and security
+PyJWT
+
+# Python standard libraries (already included but listed for clarity)
+# asyncio - built-in
+# json - built-in
+# datetime - built-in
+# os - built-in

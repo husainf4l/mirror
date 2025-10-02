@@ -1,0 +1,95 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&display=swap');
+
+/* Ensure black background for entire viewport, even when rotated */
+body, html {
+  background-color: #000000 !important;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Additional black background layers to ensure no white shows during rotation */
+body::before {
+  content: '';
+  position: fixed;
+  top: -50vh;
+  left: -50vw;
+  width: 200vw;
+  height: 200vh;
+  background-color: #000000;
+  z-index: -1;
+}
+
+/* Black background overlay that ensures no white space during rotation */
+.mirror-background-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #000000;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.mirror-page {
+  font-family: 'Cinzel', serif;
+  background: #000000;
+  color: #ffffff;
+  /* Use larger dimensions to ensure coverage during rotation */
+  min-height: 150vh;
+  min-width: 150vw;
+  width: 150vw;
+  height: 150vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform-origin: center center;
+  /* Center the oversized container */
+  margin-left: -75vw;
+  margin-top: -75vh;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+}
+
+/* Responsive adjustments for different rotations */
+@media (max-width: 768px) {
+  .mirror-page {
+    min-height: 200vh;
+    min-width: 200vw;
+    width: 200vw;
+    height: 200vh;
+    margin-left: -100vw;
+    margin-top: -100vh;
+  }
+}
+
+/* Portrait orientation adjustments */
+@media (orientation: portrait) {
+  .mirror-page {
+    min-height: 200vh;
+    min-width: 200vw;
+    width: 200vw;
+    height: 200vh;
+    margin-left: -100vw;
+    margin-top: -100vh;
+  }
+}
+
+/* Landscape orientation adjustments */
+@media (orientation: landscape) {
+  .mirror-page {
+    min-height: 150vh;
+    min-width: 150vw;
+    width: 150vw;
+    height: 150vh;
+    margin-left: -75vw;
+    margin-top: -75vh;
+  }
+}

@@ -195,45 +195,12 @@ const Control: React.FC = () => {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      const response = await fetch(`${apiUrl}/api/logout`, {
-        method: 'POST',
-        credentials: 'include'
-      });
-      
-      if (response.ok) {
-        // Clear any local storage
-        localStorage.clear();
-        // Redirect to login
-        navigate('/login');
-      }
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Even if logout fails, clear local state and redirect
-      localStorage.clear();
-      navigate('/login');
-    }
-  };
-
   return (
     <div className="control-page">
       <div className="container">
         <div className="header">
-          <div className="header-content">
-            <div className="header-text">
-              <h1>⚙️ Control Panel</h1>
-              <p>Wedding Mirror Management System</p>
-            </div>
-            <button 
-              className="logout-btn" 
-              onClick={handleLogout}
-              title="Logout"
-            >
-              <span className="logout-icon">👤</span>
-              <span className="logout-text">Logout</span>
-            </button>
-          </div>
+          <h1>⚙️ Control Panel</h1>
+          <p>Wedding Mirror Management System</p>
         </div>
 
         <div className="control-grid">

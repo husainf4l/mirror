@@ -1,0 +1,254 @@
+.mirror-container {
+  text-align: center;
+  max-width: 800px;
+  padding: 3rem 2rem;
+  z-index: 1;
+  position: relative;
+}
+
+.mirror-text {
+  font-size: clamp(2rem, 5vw, 4rem);
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+  opacity: 1;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.mirror-text .line {
+  display: block;
+  margin: 0.5em 0;
+}
+
+.mirror-text .fancy {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mirror-text .script {
+  font-style: italic;
+  font-weight: 400;
+  opacity: 0.9;
+}
+
+.stars {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.star {
+  position: absolute;
+  color: rgba(255, 255, 255, 0.7);
+  animation: twinkle 4s ease-in-out infinite;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5), 0 0 20px rgba(255, 255, 255, 0.3);
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.4));
+}
+
+/* Primary stars - brightest and most prominent */
+.primary-star {
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 0 15px rgba(255, 255, 255, 0.7), 0 0 30px rgba(255, 255, 255, 0.5);
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.6));
+}
+
+/* Corner stars - elegant accent points */
+.corner-star {
+  color: rgba(255, 215, 0, 0.8);
+  text-shadow: 0 0 12px rgba(255, 215, 0, 0.6), 0 0 24px rgba(255, 215, 0, 0.4);
+  filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.5));
+  animation: elegantTwinkle 6s ease-in-out infinite;
+}
+
+/* Background stars - subtle ambience */
+.bg-star {
+  color: rgba(255, 255, 255, 0.4);
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.2));
+  animation: subtleTwinkle 8s ease-in-out infinite;
+}
+
+/* Primary stars (1-8) - 2x larger */
+.star:nth-child(1) { top: 10%; left: 20%; font-size: 3rem; animation-delay: 0s; }
+.star:nth-child(2) { top: 20%; right: 15%; font-size: 2.4rem; animation-delay: 1s; }
+.star:nth-child(3) { top: 30%; left: 30%; font-size: 2rem; animation-delay: 2s; }
+.star:nth-child(4) { top: 40%; right: 25%; font-size: 3.6rem; animation-delay: 0.5s; }
+.star:nth-child(5) { top: 50%; left: 15%; font-size: 2.6rem; animation-delay: 1.5s; }
+.star:nth-child(6) { top: 60%; right: 20%; font-size: 2.2rem; animation-delay: 2.5s; }
+.star:nth-child(7) { top: 70%; left: 25%; font-size: 3.2rem; animation-delay: 3s; }
+.star:nth-child(8) { top: 80%; right: 30%; font-size: 2.8rem; animation-delay: 0.8s; }
+
+/* Vertical stars (9-20) - 2x larger */
+.star:nth-child(9) { top: 15%; left: 10%; font-size: 1.8rem; animation-delay: 4s; }
+.star:nth-child(10) { top: 25%; right: 10%; font-size: 2.2rem; animation-delay: 3.5s; }
+.star:nth-child(11) { top: 35%; left: 40%; font-size: 2.6rem; animation-delay: 4.5s; }
+.star:nth-child(12) { top: 45%; right: 35%; font-size: 1.6rem; animation-delay: 5s; }
+.star:nth-child(13) { top: 55%; left: 5%; font-size: 2.8rem; animation-delay: 5.5s; }
+.star:nth-child(14) { top: 65%; right: 5%; font-size: 2rem; animation-delay: 6s; }
+.star:nth-child(15) { top: 75%; left: 35%; font-size: 2.4rem; animation-delay: 6.5s; }
+.star:nth-child(16) { top: 85%; right: 40%; font-size: 1.8rem; animation-delay: 7s; }
+.star:nth-child(17) { top: 90%; left: 45%; font-size: 2.2rem; animation-delay: 7.5s; }
+.star:nth-child(18) { top: 95%; right: 45%; font-size: 2.6rem; animation-delay: 8s; }
+.star:nth-child(19) { top: 18%; left: 50%; font-size: 2rem; animation-delay: 8.5s; }
+.star:nth-child(20) { top: 82%; right: 50%; font-size: 2.2rem; animation-delay: 9s; }
+
+/* Extra decorative stars (21-28) - 2x larger */
+.star:nth-child(21) { top: 5%; left: 8%; font-size: 1.8rem; animation-delay: 9.5s; }
+.star:nth-child(22) { top: 12%; right: 8%; font-size: 1.6rem; animation-delay: 10s; }
+.star:nth-child(23) { top: 88%; left: 8%; font-size: 1.8rem; animation-delay: 10.5s; }
+.star:nth-child(24) { top: 92%; right: 8%; font-size: 2rem; animation-delay: 11s; }
+.star:nth-child(25) { top: 38%; left: 50%; font-size: 1.4rem; animation-delay: 11.5s; }
+.star:nth-child(26) { top: 62%; right: 50%; font-size: 1.6rem; animation-delay: 12s; }
+.star:nth-child(27) { top: 28%; left: 8%; font-size: 1.8rem; animation-delay: 12.5s; }
+.star:nth-child(28) { top: 72%; right: 8%; font-size: 1.6rem; animation-delay: 13s; }
+
+/* Elegant corner stars (29-32) */
+.star:nth-child(29) { top: 5%; left: 5%; font-size: 2.5rem; animation-delay: 13.5s; }
+.star:nth-child(30) { top: 5%; right: 5%; font-size: 2.3rem; animation-delay: 14s; }
+.star:nth-child(31) { top: 95%; left: 5%; font-size: 2.4rem; animation-delay: 14.5s; }
+.star:nth-child(32) { top: 95%; right: 5%; font-size: 2.6rem; animation-delay: 15s; }
+
+/* Subtle background stars (33-42) */
+.star:nth-child(33) { top: 22%; left: 60%; font-size: 1.2rem; animation-delay: 15.5s; }
+.star:nth-child(34) { top: 33%; right: 60%; font-size: 1.4rem; animation-delay: 16s; }
+.star:nth-child(35) { top: 44%; left: 65%; font-size: 1rem; animation-delay: 16.5s; }
+.star:nth-child(36) { top: 56%; right: 65%; font-size: 1.3rem; animation-delay: 17s; }
+.star:nth-child(37) { top: 67%; left: 60%; font-size: 1.1rem; animation-delay: 17.5s; }
+.star:nth-child(38) { top: 78%; right: 60%; font-size: 1.4rem; animation-delay: 18s; }
+.star:nth-child(39) { top: 13%; left: 75%; font-size: 1.2rem; animation-delay: 18.5s; }
+.star:nth-child(40) { top: 87%; right: 75%; font-size: 1.3rem; animation-delay: 19s; }
+.star:nth-child(41) { top: 50%; left: 2%; font-size: 1.6rem; animation-delay: 19.5s; }
+.star:nth-child(42) { top: 50%; right: 2%; font-size: 1.5rem; animation-delay: 20s; }
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.4; transform: scale(0.9) rotate(0deg); }
+  25% { opacity: 0.8; transform: scale(1.1) rotate(5deg); }
+  50% { opacity: 1; transform: scale(1.3) rotate(10deg); }
+  75% { opacity: 0.7; transform: scale(1.05) rotate(-5deg); }
+}
+
+@keyframes elegantTwinkle {
+  0%, 100% { opacity: 0.5; transform: scale(0.8) rotate(0deg); }
+  20% { opacity: 0.9; transform: scale(1.1) rotate(10deg); }
+  40% { opacity: 0.6; transform: scale(0.95) rotate(-5deg); }
+  60% { opacity: 1; transform: scale(1.2) rotate(15deg); }
+  80% { opacity: 0.7; transform: scale(1.05) rotate(-10deg); }
+}
+
+@keyframes subtleTwinkle {
+  0%, 100% { opacity: 0.2; transform: scale(0.9); }
+  33% { opacity: 0.5; transform: scale(1.05); }
+  66% { opacity: 0.3; transform: scale(0.95); }
+}
+
+/* Hide vertical stars on landscape by default */
+.vertical-star {
+  display: none;
+}
+
+/* Show more stars on portrait/vertical orientation */
+@media (orientation: portrait) {
+  .vertical-star {
+    display: block;
+  }
+  
+  .mirror-container {
+    padding: 2rem 1rem;
+    max-width: 600px;
+  }
+  
+  .mirror-text {
+    font-size: clamp(1.8rem, 6vw, 3.5rem);
+  }
+  
+  /* Make stars slightly larger and more visible in portrait */
+  .star {
+    font-size: 1.2em;
+  }
+}
+
+/* Mobile adjustments - scale down the larger stars */
+@media (max-width: 768px) {
+  .mirror-container {
+    padding: 2rem 1rem;
+  }
+  
+  .mirror-text {
+    font-size: clamp(1.5rem, 8vw, 3rem);
+  }
+  
+  /* Scale down stars on mobile while keeping proportions */
+  .star {
+    font-size: 0.6em;
+  }
+  
+  .primary-star {
+    font-size: 0.8em;
+  }
+  
+  .corner-star {
+    font-size: 0.7em;
+  }
+  
+  .bg-star {
+    font-size: 0.4em;
+  }
+}
+
+/* Landscape orientation - hide some stars for cleaner look */
+@media (orientation: landscape) {
+  .mirror-text {
+    font-size: clamp(1.8rem, 4vw, 3.5rem);
+  }
+  
+  .vertical-star {
+    display: none;
+  }
+  
+  .extra-star {
+    opacity: 0.5;
+  }
+  
+  .bg-star {
+    opacity: 0.3;
+  }
+}
+
+/* Rotation-aware responsive design */
+@media (min-width: 769px) and (orientation: portrait) {
+  .mirror-container {
+    max-width: 700px;
+    padding: 3rem 2rem;
+  }
+  
+  .mirror-text {
+    font-size: clamp(2.5rem, 5vw, 4.5rem);
+  }
+  
+  /* Full size stars on large portrait displays */
+  .star {
+    font-size: 1em;
+  }
+}
+
+/* Ultra-wide screens - slightly larger stars for elegance */
+@media (min-width: 1200px) {
+  .star {
+    font-size: 1.1em;
+  }
+  
+  .primary-star {
+    font-size: 1.2em;
+  }
+  
+  .corner-star {
+    font-size: 1.15em;
+  }
+}

@@ -34,11 +34,10 @@ app = FastAPI(
 # Add CORS middleware to allow React app to access the API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=["*"],  # Allow all origins for development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],
 )
 
 # Store the current mirror text and original text

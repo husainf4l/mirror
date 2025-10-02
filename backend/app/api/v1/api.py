@@ -26,9 +26,7 @@ def login(password: str = Form(...)):
             value=password,  # Simple: store password as cookie
             max_age=86400,  # 24 hours
             httponly=True,
-            secure=True,  # Required for HTTPS (production)
-            samesite="none",  # Allow cross-origin cookies
-            domain=".raheva.com"  # Share cookie across subdomains
+            secure=False  # Set to True if using HTTPS
         )
         return response
     else:
@@ -41,12 +39,7 @@ def login(password: str = Form(...)):
 def logout():
     """Logout and clear auth cookie - returns JSON"""
     response = JSONResponse({"success": True, "message": "Logged out successfully"})
-    response.delete_cookie(
-        key="mirror_auth",
-        secure=True,
-        samesite="none",
-        domain=".raheva.com"
-    )
+    response.delete_cookie(key="mirror_auth")
     return response
 
 @api_router.get("/mirror")
@@ -248,7 +241,7 @@ def search_guest(request: Request):
                 for i, full_name in enumerate(full_name_queries):
                     print(f"   🔸 Attempt {i+1}: Searching for '{full_name}'")
                     query = text("""
-                        SELECT id, first_name, last_name, phone, seat_number, relation, message, story, about
+                        SELECT first_name, last_name, phone, seat_number, relation, message, story, about
                         FROM guests 
                         WHERE LOWER(TRIM(first_name || ' ' || last_name)) = LOWER(:full_name)
                            OR LOWER(TRIM(last_name || ' ' || first_name)) = LOWER(:full_name)
@@ -270,7 +263,7 @@ def search_guest(request: Request):
                 for i, word in enumerate(search_words):
                     print(f"   🔸 Attempt {i+1}: Searching for exact match of '{word}'")
                     query = text("""
-                        SELECT id, first_name, last_name, phone, seat_number, relation, message, story, about
+                        SELECT first_name, last_name, phone, seat_number, relation, message, story, about
                         FROM guests 
                         WHERE LOWER(TRIM(first_name)) = LOWER(:word)
                            OR LOWER(TRIM(last_name)) = LOWER(:word)
@@ -291,7 +284,7 @@ def search_guest(request: Request):
                     if len(word) >= 3:  # Only search words with 3+ characters
                         print(f"   🔸 Attempt {i+1}: Fuzzy search for '{word}' (contains)")
                         query = text("""
-                            SELECT id, first_name, last_name, phone, seat_number, relation, message, story, about
+                            SELECT first_name, last_name, phone, seat_number, relation, message, story, about
                             FROM guests 
                             WHERE LOWER(first_name) LIKE LOWER(:partial)
                                OR LOWER(last_name) LIKE LOWER(:partial)
@@ -321,7 +314,7 @@ def search_guest(request: Request):
                 print("\n🔍 SEARCH STRATEGY 4: Very flexible search (any part of name)")
                 print(f"   🔸 Searching for '{search_name}' anywhere in full name")
                 query = text("""
-                    SELECT id, first_name, last_name, phone, seat_number, relation, message, story, about
+                    SELECT first_name, last_name, phone, seat_number, relation, message, story, about
                     FROM guests 
                     WHERE LOWER(first_name || ' ' || last_name) LIKE LOWER(:search_term)
                        OR LOWER(last_name || ' ' || first_name) LIKE LOWER(:search_term)
@@ -339,20 +332,18 @@ def search_guest(request: Request):
             print("\n" + "="*50)
             if result:
                 guest_info = {
-                    "id": result[0],
-                    "name": f"{result[1]} {result[2]}" if result[1] and result[2] else guest_name,
-                    "first_name": result[1],
-                    "last_name": result[2],
-                    "phone": result[3],
-                    "table_number": result[4],
-                    "relationship": result[5],
-                    "message": result[6],
-                    "story": result[7],
-                    "about": result[8]
+                    "name": f"{result[0]} {result[1]}" if result[0] and result[1] else guest_name,
+                    "first_name": result[0],
+                    "last_name": result[1],
+                    "phone": result[2],
+                    "table_number": result[3],
+                    "relationship": result[4],
+                    "message": result[5],
+                    "story": result[6],
+                    "about": result[7]
                 }
                 
                 print("🎉 GUEST FOUND!")
-                print(f"🆔 ID: {guest_info['id']}")
                 print(f"👤 Name: {guest_info['name']}")
                 print(f"📞 Phone: {guest_info['phone']}")
                 print(f"🪑 Seat: {guest_info['table_number']}")
@@ -429,10 +420,8 @@ def list_guests(authenticated: bool = Depends(require_auth)):
         sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
         from models import Guest, RelationType
         
-        # Get all non-deleted guests with their relation types
-        guests = session.query(Guest).filter(
-            Guest.deleted_at.is_(None)
-        ).join(RelationType, Guest.relation_type_id == RelationType.id, isouter=True).all()
+        # Get all guests with their relation types
+        guests = session.query(Guest).join(RelationType, Guest.relation_type_id == RelationType.id, isouter=True).all()
         
         guests_list = []
         for guest in guests:
@@ -540,19 +529,6 @@ def update_guest(guest_id: int, request: Request, authenticated: bool = Depends(
         body = asyncio.run(request.body())
         data = json.loads(body.decode())
         
-        # Basic validation
-        if 'first_name' in data and not data['first_name'].strip():
-            return JSONResponse({
-                "success": False,
-                "message": "First name cannot be empty"
-            }, status_code=400)
-            
-        if 'last_name' in data and not data['last_name'].strip():
-            return JSONResponse({
-                "success": False,
-                "message": "Last name cannot be empty"
-            }, status_code=400)
-        
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
         import os
@@ -576,25 +552,16 @@ def update_guest(guest_id: int, request: Request, authenticated: bool = Depends(
                 "message": "Guest not found"
             }, status_code=404)
         
-        # Update guest fields with stripped values
-        if 'first_name' in data:
-            guest.first_name = data['first_name'].strip()
-        if 'last_name' in data:
-            guest.last_name = data['last_name'].strip()
-        if 'phone' in data:
-            guest.phone = data['phone']
-        if 'seat_number' in data:
-            guest.seat_number = data['seat_number']
-        if 'relation' in data:
-            guest.relation = data['relation']
-        if 'relation_type_id' in data:
-            guest.relation_type_id = data['relation_type_id']
-        if 'message' in data:
-            guest.message = data['message']
-        if 'story' in data:
-            guest.story = data['story']
-        if 'about' in data:
-            guest.about = data['about']
+        # Update guest fields
+        guest.first_name = data.get("first_name", guest.first_name)
+        guest.last_name = data.get("last_name", guest.last_name)
+        guest.phone = data.get("phone", guest.phone)
+        guest.seat_number = data.get("seat_number", guest.seat_number)
+        guest.relation = data.get("relation", guest.relation)
+        guest.relation_type_id = data.get("relation_type_id", guest.relation_type_id)
+        guest.message = data.get("message", guest.message)
+        guest.story = data.get("story", guest.story)
+        guest.about = data.get("about", guest.about)
         guest.updated_at = datetime.utcnow()
         
         session.commit()
@@ -629,9 +596,8 @@ def delete_guest(guest_id: int, authenticated: bool = Depends(require_auth)):
         session = Session()
         
         from models import Guest
-        from datetime import datetime
         
-        # Find and soft delete the guest
+        # Find and delete the guest
         guest = session.query(Guest).filter_by(id=guest_id).first()
         if not guest:
             session.close()
@@ -640,8 +606,7 @@ def delete_guest(guest_id: int, authenticated: bool = Depends(require_auth)):
                 "message": "Guest not found"
             }, status_code=404)
         
-        # Soft delete by setting deleted_at timestamp
-        guest.deleted_at = datetime.utcnow()
+        session.delete(guest)
         session.commit()
         session.close()
         
@@ -723,10 +688,8 @@ def export_guests_excel(authenticated: bool = Depends(require_auth)):
         
         from models import Guest, RelationType
         
-        # Get all non-deleted guests with relation types
-        guests = session.query(Guest).filter(
-            Guest.deleted_at.is_(None)
-        ).join(RelationType, Guest.relation_type_id == RelationType.id, isouter=True).all()
+        # Get all guests with relation types
+        guests = session.query(Guest).join(RelationType, Guest.relation_type_id == RelationType.id, isouter=True).all()
         
         # Prepare data for Excel
         data = []
@@ -840,101 +803,45 @@ def import_guests_excel(request: Request, authenticated: bool = Depends(require_
         relation_types = {rt.name: rt.id for rt in session.query(RelationType).all()}
         
         imported_count = 0
-        updated_count = 0
-        skipped_count = 0
         errors = []
         
         for index, row in df.iterrows():
             try:
-                # Extract and clean data
-                first_name = str(row.get("First Name", "")).strip()
-                last_name = str(row.get("Last Name", "")).strip()
-                phone = str(row.get("Phone", "")).strip() if pd.notna(row.get("Phone")) else None
-                
-                # Skip if no name
-                if not first_name or not last_name:
-                    errors.append(f"Row {index + 2}: Missing required fields (first name or last name)")
-                    continue
-                
-                # Check for duplicates
-                existing_guest = None
-                
-                # Strategy 1: Check by phone if provided
-                if phone and phone != "":
-                    existing_guest = session.query(Guest).filter(
-                        Guest.phone == phone,
-                        Guest.deleted_at.is_(None)
-                    ).first()
-                
-                # Strategy 2: Check by full name if no phone match
-                if not existing_guest:
-                    existing_guest = session.query(Guest).filter(
-                        Guest.first_name.ilike(first_name),
-                        Guest.last_name.ilike(last_name),
-                        Guest.deleted_at.is_(None)
-                    ).first()
-                
                 # Map relation type name to ID
                 relation_type_id = None
                 if pd.notna(row.get("Relation Type", "")):
                     relation_type_id = relation_types.get(str(row["Relation Type"]))
                 
-                # If duplicate found, update instead of insert
-                if existing_guest:
-                    # Update existing guest
-                    existing_guest.phone = phone or existing_guest.phone
-                    existing_guest.seat_number = str(row.get("Seat Number", "")).strip() if pd.notna(row.get("Seat Number")) else existing_guest.seat_number
-                    existing_guest.relation = str(row.get("Relation", "")).strip() if pd.notna(row.get("Relation")) else existing_guest.relation
-                    existing_guest.relation_type_id = relation_type_id or existing_guest.relation_type_id
-                    existing_guest.message = str(row.get("Message", "")).strip() if pd.notna(row.get("Message")) else existing_guest.message
-                    existing_guest.story = str(row.get("Story", "")).strip() if pd.notna(row.get("Story")) else existing_guest.story
-                    existing_guest.about = str(row.get("About", "")).strip() if pd.notna(row.get("About")) else existing_guest.about
-                    existing_guest.updated_at = datetime.utcnow()
-                    updated_count += 1
-                else:
-                    # Create new guest
-                    new_guest = Guest(
-                        first_name=first_name,
-                        last_name=last_name,
-                        phone=phone,
-                        seat_number=str(row.get("Seat Number", "")).strip() if pd.notna(row.get("Seat Number")) else None,
-                        relation=str(row.get("Relation", "")).strip() if pd.notna(row.get("Relation")) else None,
-                        relation_type_id=relation_type_id,
-                        message=str(row.get("Message", "")).strip() if pd.notna(row.get("Message")) else None,
-                        story=str(row.get("Story", "")).strip() if pd.notna(row.get("Story")) else None,
-                        about=str(row.get("About", "")).strip() if pd.notna(row.get("About")) else None,
-                        created_at=datetime.utcnow(),
-                        updated_at=datetime.utcnow()
-                    )
-                    
-                    session.add(new_guest)
-                    imported_count += 1
+                # Create new guest
+                new_guest = Guest(
+                    first_name=str(row.get("First Name", "")).strip(),
+                    last_name=str(row.get("Last Name", "")).strip(),
+                    phone=str(row.get("Phone", "")).strip() if pd.notna(row.get("Phone")) else None,
+                    seat_number=str(row.get("Seat Number", "")).strip() if pd.notna(row.get("Seat Number")) else None,
+                    relation=str(row.get("Relation", "")).strip() if pd.notna(row.get("Relation")) else None,
+                    relation_type_id=relation_type_id,
+                    message=str(row.get("Message", "")).strip() if pd.notna(row.get("Message")) else None,
+                    story=str(row.get("Story", "")).strip() if pd.notna(row.get("Story")) else None,
+                    about=str(row.get("About", "")).strip() if pd.notna(row.get("About")) else None,
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
+                
+                session.add(new_guest)
+                imported_count += 1
                 
             except Exception as row_error:
                 errors.append(f"Row {index + 2}: {str(row_error)}")
         
-        if imported_count > 0 or updated_count > 0:
+        if imported_count > 0:
             session.commit()
         
         session.close()
         
-        # Build message
-        message_parts = []
-        if imported_count > 0:
-            message_parts.append(f"imported {imported_count} new guests")
-        if updated_count > 0:
-            message_parts.append(f"updated {updated_count} existing guests")
-        if skipped_count > 0:
-            message_parts.append(f"skipped {skipped_count} duplicates")
-            
-        message = "Successfully " + ", ".join(message_parts) if message_parts else "No changes made"
-        
         return JSONResponse({
             "success": True,
-            "message": message,
+            "message": f"Successfully imported {imported_count} guests",
             "imported_count": imported_count,
-            "updated_count": updated_count,
-            "skipped_count": skipped_count,
             "errors": errors
         })
         

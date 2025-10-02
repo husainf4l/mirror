@@ -2,6 +2,30 @@
 @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css');
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&display=swap');
 
+/* Light Theme Variables */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #e9ecef;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8f9fa;
+  --border-color: #dee2e6;
+  --border-color-light: #e9ecef;
+  --text-primary: #212529;
+  --text-secondary: #495057;
+  --text-muted: #6c757d;
+  --accent-gold: #ffc107;
+  --accent-gold-light: #ffed4a;
+  --accent-blue: #007bff;
+  --success: #28a745;
+  --success-light: #20c997;
+  --error: #dc3545;
+  --error-light: #fd7e14;
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -10,8 +34,8 @@
 
 body {
   font-family: 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-  color: white;
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%);
+  color: var(--text-primary);
   min-height: 100vh;
 }
 
@@ -29,14 +53,13 @@ body {
 }
 
 .connection-card {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+  background: var(--bg-card);
   border-radius: 20px;
   padding: 40px;
   max-width: 500px;
   width: 100%;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border: 2px solid var(--border-color);
+  box-shadow: var(--shadow-lg);
   text-align: center;
 }
 
@@ -75,23 +98,22 @@ body {
 .form-group input {
   width: 100%;
   padding: 15px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 2px solid var(--border-color);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   font-size: 16px;
-  backdrop-filter: blur(5px);
   transition: all 0.3s ease;
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: #ffd700;
+  border-color: var(--accent-gold);
   box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
 }
 
 .form-group input::placeholder {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-muted);
 }
 
 .form-group input:disabled {
@@ -172,13 +194,12 @@ body {
 }
 
 .room-header {
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(10px);
+  background: var(--bg-secondary);
   padding: 15px 30px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 2px solid var(--border-color);
 }
 
 .room-header h1 {
@@ -194,11 +215,12 @@ body {
 }
 
 .room-info span {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--bg-tertiary);
   padding: 8px 15px;
   border-radius: 20px;
   font-size: 0.9rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
 }
 
 .mirror-btn, .disconnect-btn {
@@ -233,23 +255,22 @@ body {
 
 /* LiveKit Components Override */
 .lk-room-container {
-  background: rgba(0, 0, 0, 0.5) !important;
+  background: var(--bg-primary) !important;
 }
 
 .lk-grid-layout {
-  background: transparent !important;
+  background: var(--bg-secondary) !important;
 }
 
 .lk-participant-tile {
   border-radius: 15px !important;
   overflow: hidden !important;
-  border: 2px solid rgba(255, 255, 255, 0.2) !important;
+  border: 2px solid var(--border-color) !important;
 }
 
 .lk-control-bar {
-  background: rgba(0, 0, 0, 0.8) !important;
-  backdrop-filter: blur(10px) !important;
-  border-top: 2px solid rgba(255, 255, 255, 0.1) !important;
+  background: var(--bg-secondary) !important;
+  border-top: 2px solid var(--border-color) !important;
 }
 
 .lk-button {

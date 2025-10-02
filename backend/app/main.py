@@ -12,17 +12,13 @@ from pydantic import BaseModel
 import asyncio
 import json
 from typing import List
-from app.core.config import settings
-from app.core.auth import verify_password, require_auth, check_auth
-from app.core.livekit_service import livekit_service
-from app.api.v1.api import api_router
-import asyncio
-import json
-from typing import List
+from backend.app.core.config import settings
+from backend.app.core.auth import verify_password, require_auth, check_auth
+from backend.app.api.v1.api import api_router
 
 # Try to import LiveKit service, but make it optional
 try:
-    from app.core.livekit_service import livekit_service
+    from backend.app.core.livekit_service import livekit_service
     LIVEKIT_AVAILABLE = True
 except ValueError as e:
     print(f"Warning: LiveKit service not available: {e}")
@@ -38,18 +34,13 @@ app = FastAPI(
 # Add CORS middleware to allow React app to access the API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000", 
-        "http://127.0.0.1:3000", 
-        "http://localhost:3001",  # Alternative React dev port
-        "http://127.0.0.1:3001",
-        "https://raheva.com",     # Production domain
-        "http://raheva.com"       # Production domain (HTTP redirect)
-    ],
+    allow_origins=["*"],  # Allow all origins for development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-)# Store the current mirror text and original text
+)
+
+# Store the current mirror text and original text
 original_text = '<span class="line fancy">Welcome to</span><span class="line fancy">x & y</span><span class="line fancy">Wedding</span><span class="line script">Say Mirror Mirror to begin</span>'
 current_text = original_text
 
@@ -62,16 +53,6 @@ class TextUpdate(BaseModel):
 class AudioPlayEvent(BaseModel):
     type: str = "audio_play"
     message: str = "Playing mirror sound effect"
-
-# Mount static files (removed - not needed)
-# app.mount("/static", StaticFiles(directory="../static"), name="static")
-
-# Store connected SSE clients
-connected_clients: List[asyncio.Queue] = []
-
-# Store the current mirror text and original text
-original_text = '<span class="line fancy">Welcome to</span><span class="line fancy">x & y</span><span class="line fancy">Wedding</span><span class="line script">Say Mirror Mirror to begin</span>'
-current_text = original_text
 
 async def broadcast_message(message: dict):
     """Broadcast message to all connected SSE clients"""
@@ -90,17 +71,11 @@ async def broadcast_message(message: dict):
 # Include API routes
 app.include_router(api_router, prefix="/api")
 
-# Auth API routes - returning JSON instead of HTML templates
+# Auth API routes
 @app.get("/")
 def root():
-    """API root endpoint - redirect to React app"""
+    """API root endpoint"""
     return {"message": "Wedding Mirror API", "frontend_url": "http://localhost:3000"}
-
-# Login endpoint moved to /api/login in api_router
-
-# Mirror display endpoint moved to /api/mirror in api_router
-
-# Logout endpoint moved to /api/logout in api_router
 
 # Mirror control endpoints
 @app.post("/api/reset")
@@ -109,7 +84,6 @@ async def reset_mirror():
     global current_text
     current_text = original_text
     
-    # Broadcast reset message to all connected clients
     reset_message = {
         "type": "reset",
         "new_text": current_text,
@@ -127,8 +101,6 @@ async def reset_mirror():
         "audio_url": "/static/audio/mirror.wav"
     }
 
-
-
 @app.post("/api/update-text")
 async def update_text(text_update: TextUpdate):
     """Update the mirror text display"""
@@ -136,13 +108,11 @@ async def update_text(text_update: TextUpdate):
     
     current_text = text_update.text
     
-    # Broadcast update to all connected clients
     event_data = {
         "type": "text_update", 
         "text": current_text
     }
     
-    # Send to all connected clients
     disconnected_clients = []
     for client_queue in connected_clients:
         try:
@@ -150,7 +120,6 @@ async def update_text(text_update: TextUpdate):
         except:
             disconnected_clients.append(client_queue)
     
-    # Remove disconnected clients
     for client in disconnected_clients:
         connected_clients.remove(client)
     
@@ -159,5 +128,3 @@ async def update_text(text_update: TextUpdate):
         "new_text": current_text,
         "clients_notified": len(connected_clients)
     }
-
-

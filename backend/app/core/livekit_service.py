@@ -9,7 +9,7 @@ import jwt
 import requests
 import logging
 from livekit import api
-from app.core.config import settings
+from backend.app.core.config import settings
 
 logger = logging.getLogger(__name__)
 

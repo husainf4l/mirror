@@ -2,7 +2,12 @@ import logging
 import asyncio
 import base64
 import aiohttp
+import sys
+import os
 from dotenv import load_dotenv
+
+# Add the agent directory to Python path for imports
+sys.path.insert(0, os.path.dirname(__file__))
 
 from livekit.agents import (
     Agent,
@@ -20,179 +25,18 @@ logger = logging.getLogger("wedding-mirror")
 
 load_dotenv()
 
-
-@function_tool
-async def get_guest_info(guest_name: str) -> str:
-    """Get guest information from the wedding database to verify identity and get correct details."""
-    print(f"[DEBUG] get_guest_info called with guest_name: '{guest_name}'")
-    
-    # Clean and prepare the name for searching
-    clean_name = guest_name.strip()
-    
-    # Try multiple name variations for better matching
-    name_variations = [
-        clean_name,  # Original name
-        clean_name.title(),  # Title case
-        clean_name.lower(),  # Lower case
-        clean_name.upper(),  # Upper case
-    ]
-    
-    # If it's a single word, try it as both first and last name
-    if len(clean_name.split()) == 1:
-        name_variations.extend([
-            f"{clean_name} ",  # As first name
-            f" {clean_name}",  # As last name
-        ])
-    
-    url = "http://localhost:8000/api/guest/search"
-    
-    # Try each name variation
-    for variation in name_variations:
-        try:
-            payload = {"name": variation.strip()}
-            print(f"[DEBUG] Trying search with variation: '{variation.strip()}'")
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=5)) as response:
-                    content_text = await response.text()
-                    print(f"[DEBUG] Response status: {response.status}, content: {content_text}")
-                    
-                    if response.status == 200:
-                        import json
-                        guest_data = json.loads(content_text)
-                        
-                        if guest_data.get("found", False):
-                            guest_info = guest_data.get("guest", {})
-                            full_name = guest_info.get("name", guest_name)
-                            first_name = guest_info.get("first_name", "")
-                            last_name = guest_info.get("last_name", "")
-                            relationship = guest_info.get("relationship", "")
-                            table_number = guest_info.get("table_number", "")
-                            
-                            # Build comprehensive info text
-                            info_text = f"Found guest: {full_name}"
-                            if relationship and relationship.lower() != 'none':
-                                info_text += f", {relationship}"
-                            if table_number:
-                                info_text += f", Table {table_number}"
-                            
-                            print(f"[DEBUG] Successfully found guest: {info_text}")
-                            return info_text
-                            
-        except aiohttp.ClientError as e:
-            print(f"[DEBUG] Client error for '{variation}': {e}")
-            continue
-        except Exception as e:
-            print(f"[DEBUG] Exception for '{variation}': {str(e)}")
-            continue
-    
-    # If no variations worked, return not found message
-    print(f"[DEBUG] No guest found for any variation of '{guest_name}'")
-    return f"Guest '{guest_name}' not found in wedding list. They are a welcome surprise guest!"
+# Import agent functions
+from tools import (
+    get_guest_about,
+    get_guest_info,
+    update_mirror_with_guest_info,
+    update_mirror_display,
+    play_mirror_audio,
+    close_session,
+)
 
 
-@function_tool
-async def update_mirror_with_guest_info(guest_name: str) -> str:
-    """Get guest information and update the mirror display with personalized welcome."""
-    print(f"[DEBUG] update_mirror_with_guest_info called with guest_name: '{guest_name}'")
-    
-    # First get guest information with enhanced search
-    guest_info_result = await get_guest_info(guest_name)
-    print(f"[DEBUG] Guest info result: {guest_info_result}")
-    
-    # Extract the correct name from guest info or use provided name
-    correct_name = guest_name  # Default fallback
-    
-    if "Found guest:" in guest_info_result:
-        # Extract the full name from the result
-        import re
-        name_match = re.search(r"Found guest: ([^,]+)", guest_info_result)
-        if name_match:
-            found_name = name_match.group(1).strip()
-            # Use the found name if it's more complete than the provided name
-            if len(found_name.split()) >= len(guest_name.split()):
-                correct_name = found_name
-                print(f"[DEBUG] Using database name: '{correct_name}' instead of '{guest_name}'")
-            else:
-                print(f"[DEBUG] Keeping original name: '{guest_name}' (more complete than '{found_name}')")
-        else:
-            print(f"[DEBUG] Could not extract name from result, using original: '{guest_name}'")
-    else:
-        print(f"[DEBUG] Guest not found in database, using provided name: '{guest_name}'")
-    
-    # Now update the mirror with the correct name
-    url = "http://localhost:8000/api/update-text"
-    clean_name = ' '.join(word.capitalize() for word in correct_name.split())
-    
-    formatted_text = (
-        f'<span class="line fancy">Welcome</span>'
-        f'<span class="line fancy">{clean_name}!</span>'
-        f'<span class="line fancy">To X & Y</span>'
-        f'<span class="line script">Enjoy the celebration!</span>'
-    )
-    
-    payload = {
-        "text": formatted_text
-    }
-    
-    try:
-        print(f"[DEBUG] Making POST request to {url} with payload: {payload}")
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=5)) as response:
-                content = await response.text()
-                print(f"[DEBUG] Response status: {response.status}, content: {content}")
-                if response.status == 200:
-                    return f"Mirror successfully updated to welcome {clean_name}! {guest_info_result}"
-                elif response.status == 404:
-                    return f"Mirror API endpoint not found. Is the backend running on port 8000?"
-                else:
-                    return f"Failed to update mirror. Status: {response.status}, Response: {content}"
-    except aiohttp.ClientError as e:
-        print(f"[DEBUG] Client error - Mirror backend not reachable: {e}")
-        return f"Cannot connect to mirror backend at localhost:8000. Is it running?"
-    except Exception as e:
-        print(f"[DEBUG] Exception in update_mirror_with_guest_info: {str(e)}")
-        return f"Error updating mirror: {str(e)}"
 
-
-@function_tool
-async def update_mirror_display(guest_name: str) -> str:
-    """Update the wedding mirror display with a guest's name to welcome them personally."""
-    print(f"[DEBUG] update_mirror_display called with guest_name: {guest_name}")
-    url = "http://localhost:8000/api/update-text"
-    
-    # Clean up the name
-    clean_name = ' '.join(word.capitalize() for word in guest_name.split())
-    
-    formatted_text = (
-        f'<span class="line fancy">Welcome</span>'
-        f'<span class="line fancy">{clean_name}!</span>'
-        f'<span class="line fancy">To X & Y</span>'
-        f'<span class="line script">Enjoy the celebration!</span>'
-    )
-    
-    payload = {
-        "text": formatted_text
-    }
-    
-    try:
-        print(f"[DEBUG] Making POST request to {url} with payload: {payload}")
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=5)) as response:
-                content = await response.text()
-                print(f"[DEBUG] Response status: {response.status}, content: {content}")
-                if response.status == 200:
-                    return f"Mirror successfully updated to welcome {clean_name}!"
-                elif response.status == 404:
-                    return f"Mirror API endpoint not found. Is the backend running on port 8000?"
-                else:
-                    return f"Failed to update mirror. Status: {response.status}, Response: {content}"
-    except aiohttp.ClientError as e:
-        print(f"[DEBUG] Client error - Mirror backend not reachable: {e}")
-        return f"Cannot connect to mirror backend at localhost:8000. Is it running?"
-    except Exception as e:
-        print(f"[DEBUG] Exception in update_mirror_display: {str(e)}")
-        return f"Error updating mirror: {str(e)}"
 
 
 class WeddingMirrorAgent(Agent):
@@ -202,17 +46,21 @@ class WeddingMirrorAgent(Agent):
 You are a magical wedding mirror assistant for x & Y's wedding.
 
 BEHAVIOR:
-1. ALWAYS start by asking: "Hello! Welcome to X and Y's wedding! What is your name?"
+1. Stay completely silent until you hear the activation phrase "mirror mirror".
 
-2. When someone tells you their name for the FIRST TIME, you MUST:
+2. When you hear "mirror mirror", immediately call play_mirror_audio() to activate the mirror with sound, then start the normal interaction by greeting the user and asking for their name.
+
+3. After activation, ALWAYS start by asking: "Hello! Welcome to X and Y's wedding! What is your name?"
+
+4. When someone tells you their name for the FIRST TIME, you MUST:
    - Greet them with "Hello [their name]!"
    - IMMEDIATELY call update_mirror_with_guest_info("[their name]") - this will verify their identity and update the mirror
    - Then give them a warm welcome to the wedding mentioning any special details found
    - DO NOT repeat the mirror update if you already know their name!
 
-3. Be warm, celebratory, and wedding-appropriate. You are the mirror from fairy tales!
+5. Be warm, celebratory, and wedding-appropriate. You are the mirror from fairy tales!
 
-4. After welcoming them, you can chat about the wedding, ask about their relationship with X and Y, or just be conversational.
+6. After welcoming them, you can chat about the wedding, ask about their relationship with X and Y, or just be conversational.
 
 NAME DETECTION RULES:
 - Listen for patterns like "I'm [Name]", "My name is [Name]", "Call me [Name]", or just "[Name]"
@@ -221,24 +69,90 @@ NAME DETECTION RULES:
 - DO NOT call the mirror update functions again for the same person!
 
 You have access to these tools:
+- play_mirror_audio(): Plays the mirror activation sound
 - get_guest_info(guest_name: str): Checks the wedding database for guest information
 - update_mirror_with_guest_info(guest_name: str): Gets guest info and updates mirror with correct details
 - update_mirror_display(guest_name: str): Basic mirror update (use update_mirror_with_guest_info instead)
+- get_guest_about(guest_name: str): Gets detailed personal information about a guest from their 'about' field
+- close_session(): Closes the current session, plays closing audio, and resets the mirror when the guest finishes
 
-CRITICAL: Use update_mirror_with_guest_info when learning someone's name for the first time to get accurate guest details!""",
+CRITICAL: 
+- Use update_mirror_with_guest_info when learning someone's name for the first time to get accurate guest details!
+- When the guest says goodbye, indicates they're done, or the conversation naturally ends, IMMEDIATELY call close_session() to properly close the interaction and reset the mirror.
+- You can also use get_guest_about to share interesting facts or personal details about guests when appropriate.""",
             llm=google.beta.realtime.RealtimeModel(
                 voice="Puck",
                 temperature=0.8,
             ),
-            tools=[get_guest_info, update_mirror_with_guest_info, update_mirror_display],
+            tools=[get_guest_info, update_mirror_with_guest_info, update_mirror_display, get_guest_about, play_mirror_audio, close_session],
         )
+        self.activated = False
+        self.inactivity_timer = None
+        self.inactivity_timeout = 10.0  # 10 seconds
 
     async def on_enter(self):
+        print("[AGENT STATUS] Wedding mirror agent entering room - waiting for 'mirror mirror' activation")
         logger.info("Wedding mirror agent entering room")
-        # Generate initial greeting asking for guest name
-        self.session.generate_reply(
-            instructions="Greet the user as a magical wedding mirror and ask for their name. Be warm and welcoming - this is X and Y's wedding!"
+        # Stay silent until activated with "mirror mirror"
+
+    async def on_transcript(self, transcript: str):
+        """Called when new transcript is received"""
+        print(f"[GUEST SPEAKING] {transcript}")
+        if "mirror mirror" in transcript.lower():
+            if self.activated:
+                # Reset the session if already activated
+                await self._reset_session()
+            else:
+                # Activate the mirror
+                self.activated = True
+                await self._activate_mirror()
+        elif self.activated:
+            # Reset inactivity timer on any speech
+            await self._reset_inactivity_timer()
+
+    async def _activate_mirror(self):
+        """Activate the mirror and start interaction"""
+        # Play activation audio
+        await play_mirror_audio()
+        # Start inactivity timer
+        await self._reset_inactivity_timer()
+        # Generate initial greeting
+        print("[AGENT ACTIVATION] Mirror activated! Starting interaction...")
+        self.generate_reply_with_logging(
+            instructions="Now that the mirror is activated, greet the user as a magical wedding mirror and ask for their name. Be warm and welcoming - this is X and Y's wedding!"
         )
+
+    async def _reset_session(self):
+        """Reset the current session and restart interaction"""
+        print("[AGENT RESET] Resetting session due to 'mirror mirror' reactivation")
+        # Cancel inactivity timer
+        if self.inactivity_timer:
+            self.inactivity_timer.cancel()
+            self.inactivity_timer = None
+        # Reset activation state
+        self.activated = False
+        
+        # Reactivate immediately (play_mirror_audio will handle the reset)
+        self.activated = True
+        await self._activate_mirror()
+
+    async def _reset_inactivity_timer(self):
+        """Reset the inactivity timer"""
+        if self.inactivity_timer:
+            self.inactivity_timer.cancel()
+        self.inactivity_timer = asyncio.create_task(self._inactivity_timeout())
+
+    async def _inactivity_timeout(self):
+        """Handle inactivity timeout by closing the session"""
+        await asyncio.sleep(self.inactivity_timeout)
+        if self.activated:
+            print("[AGENT TIMEOUT] Session timed out due to inactivity")
+            await close_session()
+
+    def generate_reply_with_logging(self, instructions: str):
+        """Generate a reply with console logging"""
+        print(f"[AGENT SPEAKING] Generating response with instructions: {instructions}")
+        self.session.generate_reply(instructions=instructions)
 
 
 async def entrypoint(ctx: JobContext):

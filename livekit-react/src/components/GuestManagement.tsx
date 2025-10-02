@@ -430,36 +430,28 @@ const GuestManagement: React.FC = () => {
         <table>
           <thead>
             <tr>
+              <th>ID</th>
               <th>Name</th>
               <th>Phone</th>
-              <th>Seat</th>
+              <th>Table</th>
               <th>Relation</th>
-              <th>Type</th>
-              <th>Message</th>
+              <th>Relation Type</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredGuests.map(guest => (
               <tr key={guest.id}>
+                <td>{guest.id}</td>
                 <td>
                   <div className="guest-name">
-                    <strong>{guest.full_name}</strong>
+                    <strong>{guest.full_name || `${guest.first_name} ${guest.last_name}`}</strong>
                   </div>
                 </td>
                 <td>{guest.phone || '-'}</td>
-                <td>{guest.seat_number || '-'}</td>
+                <td><strong>{guest.seat_number || '-'}</strong></td>
                 <td>{guest.relation || '-'}</td>
-                <td>{guest.relation_type || '-'}</td>
-                <td>
-                  <div className="message-preview">
-                    {guest.message ? (
-                      guest.message.length > 50 
-                        ? `${guest.message.substring(0, 50)}...`
-                        : guest.message
-                    ) : '-'}
-                  </div>
-                </td>
+                <td><span className="badge">{guest.relation_type || '-'}</span></td>
                 <td>
                   <div className="actions">
                     <button

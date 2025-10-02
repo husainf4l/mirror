@@ -17,67 +17,48 @@ from dotenv import load_dotenv
 # Load environment variables from parent directory
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
-# Sample data for generating realistic guest records
+# Sample data for generating realistic guest records with Arabic names
 FIRST_NAMES = [
-    "Alice", "Bob", "Carol", "David", "Emma", "Frank", "Grace", "Henry", "Iris", "Jack",
-    "Kate", "Liam", "Maya", "Noah", "Olivia", "Peter", "Quinn", "Rachel", "Sam", "Tina",
-    "Uma", "Victor", "Wendy", "Xavier", "Yara", "Zoe", "Alex", "Beth", "Chris", "Dana",
-    "Ethan", "Fiona", "George", "Hannah", "Ian", "Julia", "Kyle", "Luna", "Mark", "Nina",
-    "Oscar", "Penny", "Ryan", "Sarah", "Tom", "Vera", "Will", "Xara", "Yvonne", "Zack"
+    "Hussein", "Abdullah", "Ibrahim", "Diab", "Mohammed", "Ahmad", "Ali", "Omar", "Khalid", "Yusuf",
+    "Hassan", "Mustafa", "Mahmoud", "Hamza", "Tariq", "Saleh", "Karim", "Waleed", "Faisal", "Zaid",
+    "Rami", "Nabil", "Samir", "Jamal", "Adnan", "Marwan", "Rashid", "Majid", "Sami", "Ammar",
+    "Fatima", "Aisha", "Maryam", "Zainab", "Layla", "Noor", "Hala", "Sarah", "Amina", "Yasmin",
+    "Rania", "Dina", "Lina", "Huda", "Rana", "Hanan", "Sana", "Maha", "Salma", "Jana"
 ]
 
 LAST_NAMES = [
-    "Anderson", "Brown", "Clark", "Davis", "Evans", "Foster", "Garcia", "Harris", "Irwin", "Johnson",
-    "Kelly", "Lopez", "Miller", "Nelson", "O'Connor", "Parker", "Quinn", "Rodriguez", "Smith", "Taylor",
-    "Underwood", "Valdez", "Wilson", "Young", "Zhang", "Adams", "Baker", "Carter", "Douglas", "Edwards",
-    "Fisher", "Green", "Hall", "Jackson", "King", "Lee", "Martin", "Moore", "Phillips", "Roberts",
-    "Scott", "Thompson", "Turner", "Walker", "White", "Allen", "Bell", "Cooper", "Hill", "Lewis"
+    "Al-Hussein", "Al-Abdullah", "Al-Ibrahim", "Diab", "Al-Mohammed", "Al-Ahmad", "Al-Ali", "Al-Omar", "Al-Khalid", "Al-Hassan",
+    "Al-Mustafa", "Al-Mahmoud", "Al-Hamza", "Al-Tariq", "Al-Saleh", "Al-Karim", "Al-Waleed", "Al-Faisal", "Al-Zaid", "Al-Rami",
+    "Al-Nabil", "Al-Samir", "Al-Jamal", "Al-Adnan", "Al-Marwan", "Al-Rashid", "Al-Majid", "Al-Sami", "Al-Ammar", "Qasem",
+    "Mansour", "Fahad", "Nasser", "Salem", "Badr", "Mazen", "Ghassan", "Tawfiq", "Aziz", "Habib",
+    "Khoury", "Hamdan", "Zaidan", "Sabbagh", "Nassar", "Jabr", "Darwish", "Assaf", "Farah", "Haddad"
 ]
 
 SAMPLE_MESSAGES = [
-    "Congratulations on your special day! Wishing you a lifetime of love and happiness.",
-    "So happy to celebrate with you both! Your love story is truly inspiring.",
-    "May your marriage be filled with joy, laughter, and endless adventures together.",
-    "Cheers to the beautiful couple! Can't wait to see what the future holds for you.",
-    "Your wedding day is absolutely perfect, just like your love for each other.",
-    "Wishing you both all the happiness in the world as you start this new chapter.",
-    "What a beautiful ceremony! Your love shines so brightly today.",
-    "Congratulations! May your love continue to grow stronger with each passing year.",
-    "So grateful to witness your union. You two are meant to be together!",
-    "Here's to a lifetime of beautiful moments and cherished memories together.",
-    "Your love story gives us all hope. Congratulations on your wedding day!",
-    "May your marriage be everything you've dreamed of and more.",
-    "Sending you both love and best wishes for a wonderful future together.",
-    "What a joy to celebrate your love today! Congratulations to the happy couple.",
-    "Your wedding is absolutely magical. Wishing you endless happiness together.",
-    "Congratulations on finding your perfect match! Your love is beautiful to witness.",
-    "May your journey together be filled with love, laughter, and wonderful adventures.",
-    "So excited to celebrate this special moment with you. Congratulations!",
-    "Your love story is one for the ages. Wishing you a beautiful marriage.",
-    "Here's to love, laughter, and your happily ever after!"
+    "",  # Empty messages
 ]
 
 SAMPLE_STORIES = [
-    "I remember when you first told me about your partner - your face just lit up with joy!",
-    "We've been friends since college, and I've never seen you happier than you are today.",
-    "Your love story reminded me that fairytales do come true. Thank you for showing us that.",
-    "I had the privilege of watching your relationship blossom from the very beginning.",
-    "The way you two look at each other still gives me butterflies - pure magic!",
-    "I knew you were 'the one' the moment I saw how they made you laugh.",
-    "Your first date story never gets old - I love how nervous you both were!",
-    "Watching you two together has taught me what true partnership looks like.",
-    "I'm so grateful to have witnessed your journey from friends to soulmates.",
-    "Your proposal story still makes me cry happy tears every time I hear it!",
-    "The way you support each other through everything is truly inspirational.",
-    "I love how you both bring out the best in each other every single day.",
-    "Your relationship has shown me what it means to love unconditionally.",
-    "From your first dance to today's first dance - what a beautiful journey!",
-    "I'm honored to call you both family and to be here celebrating with you.",
-    "Your love has been a constant source of joy and inspiration to all of us.",
-    "The adventures you've shared together are just the beginning of your story.",
-    "Your kindness and love have touched so many lives, including mine.",
-    "I can't wait to see all the amazing memories you'll create together.",
-    "Thank you for showing us all what true love really looks like."
+    "College friend and longtime companion.",
+    "Childhood neighbor who became family.",
+    "Work colleague and close friend.",
+    "High school friend with great memories.",
+    "Family friend for many years.",
+    "Travel companion and adventure buddy.",
+    "Book club member and literature enthusiast.",
+    "Gym partner and fitness enthusiast.",
+    "Art class friend with creative spirit.",
+    "Music lover and concert companion.",
+    "Hiking buddy and nature enthusiast.",
+    "Tech professional and gaming friend.",
+    "Volunteer coordinator in the community.",
+    "Culinary enthusiast and dinner host.",
+    "Yoga instructor and wellness advocate.",
+    "Professional mentor and guide.",
+    "Sports fan and weekend athlete.",
+    "Gardening enthusiast with green thumb.",
+    "Film enthusiast and movie companion.",
+    "Dance partner and music lover."
 ]
 
 SAMPLE_ABOUT = [
@@ -107,11 +88,10 @@ def generate_phone():
     """Generate a realistic phone number."""
     return f"+1-{random.randint(200, 999)}-{random.randint(200, 999)}-{random.randint(1000, 9999)}"
 
-def generate_seat():
-    """Generate a realistic seat number."""
-    table = random.randint(1, 15)
-    seat = random.randint(1, 8)
-    return f"T{table}S{seat}"
+def generate_table():
+    """Generate a table number only (no seat number)."""
+    table = random.randint(1, 10)  # 10 tables for 50 guests
+    return f"Table {table}"
 
 def generate_visit_time():
     """Generate a realistic visit time within the last few hours."""
@@ -127,11 +107,14 @@ def create_sample_guests():
         print("ERROR: DATABASE_URL not found in environment variables")
         return False
     
-    print(f"Connecting to database: {database_url}")
+    # Convert async URL to sync URL for SQLAlchemy
+    sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+    
+    print(f"Connecting to database: {sync_database_url}")
     
     try:
         # Create sync engine
-        engine = create_engine(database_url)
+        engine = create_engine(sync_database_url)
         Session = sessionmaker(bind=engine)
         session = Session()
         
@@ -142,18 +125,38 @@ def create_sample_guests():
         session.commit()
         print("Cleared existing guest data")
         
+        # Get or create relation types
+        relation_types = {}
+        for rel_name in ["Bride's Family", "Groom's Family", "Close Friends", "Friends", "Colleagues"]:
+            rel_type = session.query(RelationType).filter_by(name=rel_name).first()
+            if not rel_type:
+                rel_type = RelationType(name=rel_name, description=f"{rel_name} relation")
+                session.add(rel_type)
+                session.flush()
+            relation_types[rel_name] = rel_type
+        
+        session.commit()
+        print(f"Created/verified {len(relation_types)} relation types")
+        
+        # List of relation descriptions
+        relations = [
+            "Uncle", "Aunt", "Cousin", "Nephew", "Niece",
+            "Childhood friend", "College friend", "Work colleague", "Neighbor", "Classmate",
+            "Family relative", "Close friend", "Former teacher", "Former colleague"
+        ]
+        
         # Create 50 sample guests
         for i in range(50):
             guest = Guest(
                 first_name=random.choice(FIRST_NAMES),
                 last_name=random.choice(LAST_NAMES),
-                phone=generate_phone() if random.choice([True, False]) else None,
-                seat_number=generate_seat() if random.choice([True, False]) else None,
-                relation=random.choice(list(RelationType)),
-                message=random.choice(SAMPLE_MESSAGES) if random.choice([True, False]) else None,
-                story=random.choice(SAMPLE_STORIES) if random.choice([True, False]) else None,
-                about=random.choice(SAMPLE_ABOUT) if random.choice([True, False]) else None,
-                visit_time=generate_visit_time(),
+                phone=generate_phone() if random.random() > 0.3 else None,  # 70% have phones
+                seat_number=generate_table(),  # Always assign a table
+                relation=random.choice(relations) if random.random() > 0.4 else None,  # 60% have relations
+                relation_type_id=random.choice(list(relation_types.values())).id if random.random() > 0.3 else None,  # 70% have relation types
+                message=None,  # Empty messages
+                story=random.choice(SAMPLE_STORIES) if random.random() > 0.6 else None,  # 40% have stories
+                about=random.choice(SAMPLE_ABOUT) if random.random() > 0.7 else None,  # 30% have about
                 created_at=datetime.now(),
                 updated_at=datetime.now()
             )
@@ -181,11 +184,12 @@ def main():
     if success:
         print("✅ Database seeding completed successfully!")
         print("📊 Summary:")
-        print("   - 50 sample guests created")
-        print("   - Mixed relation types (family, close_friends, friend)")
-        print("   - Random phone numbers and seat assignments")
-        print("   - Variety of messages, stories, and about information")
-        print("   - Visit times spread across the last few hours")
+        print("   - 50 sample guests created with Arabic names")
+        print("   - Mixed relation types (70% have relation types)")
+        print("   - Relations: 60% have relation descriptions")
+        print("   - All guests assigned to tables (Table 1-10)")
+        print("   - Random phone numbers (70% coverage)")
+        print("   - Empty messages, stories (40%), and about info (30%)")
         sys.exit(0)
     else:
         print("❌ Database seeding failed!")

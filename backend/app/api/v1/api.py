@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Form, Depends, Request
 from fastapi.responses import JSONResponse, StreamingResponse
-from app.core.auth import verify_password, require_auth
-from app.core.livekit_service import livekit_service
-from app.core.config import settings
+from backend.app.core.auth import verify_password, require_auth
+from backend.app.core.livekit_service import livekit_service
+from backend.app.core.config import settings
 import asyncio
 import json
 
@@ -46,7 +46,7 @@ def logout():
 def mirror_display(authenticated: bool = Depends(require_auth)):
     """API endpoint to get mirror state - requires authentication"""
     # Import here to avoid circular imports
-    from app.main import current_text, original_text
+    from backend.app.main import current_text, original_text
     return {
         "success": True,
         "current_text": current_text,
@@ -94,7 +94,7 @@ def get_livekit_config():
 async def stream_events(request: Request):
     """Server-sent events for real-time mirror updates"""
     # Import here to avoid circular imports
-    from app.main import connected_clients, current_text
+    from backend.app.main import connected_clients, current_text
     
     async def event_generator():
         client_queue = asyncio.Queue()

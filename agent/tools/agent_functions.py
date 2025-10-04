@@ -1,5 +1,8 @@
 """
-Agent Functions for Wedding Mirror
+Agent Functio    # Use the provided text directly
+    display_text = text.strip()
+    
+    # Now update the mirror with the textng Mirror
 
 This module contains all the function tools used by the wedding mirror agent.
 """
@@ -23,7 +26,7 @@ async def update_display(text: str) -> str:
     if hasattr(__main__, 'current_agent') and __main__.current_agent:
         # Check if text looks like a name (not a full sentence)
         if len(display_text.split()) <= 3 and not display_text.endswith(('.', '!', '?')):
-            if __main__.current_agent.recording_manager:
+            if hasattr(__main__.current_agent, 'recording_manager') and __main__.current_agent.recording_manager:
                 __main__.current_agent.recording_manager.guest_name = display_text
     
     # Now update the mirror with the text
@@ -36,18 +39,18 @@ async def update_display(text: str) -> str:
         formatted_text = (
             f'<span class="line fancy">Welcome</span>'
             f'<span class="line fancy">{clean_name}!</span>'
-            f'<span class="line fancy">To Rakan & Farah</span>'
+            f'<span class="line fancy">To Moatasem & Hala</span>'
             f'<span class="line script">Enjoy the celebration!</span>'
         )
-        display_message = f"Welcome {clean_name}! To Rakan & Farah - Enjoy the celebration!"
+        display_message = f"Welcome {clean_name}! To Moatasem & Hala - Enjoy the celebration!"
     else:
         # Format as general message for compliments or other text
         formatted_text = (
             f'<span class="line fancy">{display_text}</span>'
-            f'<span class="line fancy">To Rakan & Farah</span>'
+            f'<span class="line fancy">To Moatasem & Hala</span>'
             f'<span class="line script">Enjoy the celebration!</span>'
         )
-        display_message = f"{display_text} - To Rakan & Farah - Enjoy the celebration!"
+        display_message = f"{display_text} - To Moatasem & Hala - Enjoy the celebration!"
 
     print(f"[MIRROR DISPLAY] Updating mirror text to: {display_message}")
     
@@ -101,40 +104,8 @@ async def display_speech(speech_content: str) -> str:
 
 @function_tool
 async def start_session() -> str:
-    """Start a new mirror session when activated with 'mirror mirror' - plays activation audio and starts recording for the guest."""
-    print("[AUDIO] Playing mirror activation sound - Starting new guest recording")
-    
-    # Start recording when mirror is activated
-    try:
-        import __main__
-        if hasattr(__main__, 'current_agent') and __main__.current_agent:
-            agent = __main__.current_agent
-            
-            # Initialize fresh recording manager for this guest
-            print("[RECORDING] Initializing new RecordingManager for guest...")
-            from utils.recording import RecordingManager
-            agent.recording_manager = RecordingManager(agent.ctx)
-            print("[RECORDING] New RecordingManager initialized successfully")
-            
-            # Start recording
-            if agent.recording_manager:
-                print("[RECORDING] Starting recording...")
-                recording_url = await agent.recording_manager.start_recording()
-                if recording_url:
-                    print(f"[RECORDING] Recording started successfully and saved to backend: {recording_url}")
-                else:
-                    print("[RECORDING] LiveKit recording failed (likely egress minutes exceeded), but continuing with session")
-                    print("[RECORDING] Guest can still use mirror - video recording unavailable")
-                    # Clear the recording manager since recording failed
-                    agent.recording_manager = None
-            else:
-                print("[RECORDING] No recording manager available")
-        else:
-            print("[RECORDING] No agent instance available for recording")
-    except Exception as e:
-        print(f"[RECORDING] Error starting recording: {e}")
-        import logging
-        logging.error(f"Error starting recording in start_session: {e}", exc_info=True)
+    """Start a new mirror session when activated with 'mirror mirror' - plays activation audio and resets the mirror display."""
+    print("[AUDIO] Playing mirror activation sound - Starting new guest session")
     
     # Reset the mirror text to default before playing audio
     try:
@@ -158,68 +129,9 @@ async def start_session() -> str:
 
 
 @function_tool
-async def reset_for_next_guest() -> str:
-    """Reset the mirror display for the next guest while keeping the recording active."""
-    print("[AGENT ACTION] Resetting mirror for next guest - keeping recording active")
-    
-    import subprocess
-    import aiohttp
-    try:
-        # Play the closing.wav file
-        subprocess.run(['aplay', '/home/husain/Desktop/mirror/agent/closing.wav'], check=True)
-        
-        # Reset the mirror via backend API
-        url = "http://localhost:8000/api/reset"
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, timeout=aiohttp.ClientTimeout(total=5)) as response:
-                if response.status == 200:
-                    print("[MIRROR DISPLAY] Mirror reset to default state")
-                    return "Mirror reset successfully. Ready for next guest activation with 'mirror mirror'. Recording continues in background."
-                else:
-                    return f"Mirror reset failed (status: {response.status}). Ready for next activation."
-    except subprocess.CalledProcessError as e:
-        return f"Failed to play closing audio: {e}. Mirror reset for next guest."
-    except aiohttp.ClientError as e:
-        return f"Failed to reset mirror: {e}. Ready for next guest."
-    except Exception as e:
-        return f"Error resetting for next guest: {e}"
-
-
-@function_tool
 async def close_session() -> str:
-    """Close current guest session, stop their recording, reset mirror, and prepare for next guest."""
-    print("[AGENT ACTION] Closing guest session - stopping recording and resetting mirror")
-    
-    # Stop current guest's recording
-    recording_stopped = False
-    
-    try:
-        import __main__
-        if hasattr(__main__, 'current_agent') and __main__.current_agent:
-            agent = __main__.current_agent
-            
-            if hasattr(agent, 'recording_manager') and agent.recording_manager:
-                print("[RECORDING] Stopping current guest's recording...")
-                
-                # Stop the recording for this guest
-                success = await agent.recording_manager.stop_recording()
-                if success:
-                    print("[RECORDING] Guest recording stopped and saved successfully")
-                    recording_stopped = True
-                else:
-                    print("[RECORDING] Failed to stop guest recording (may not have been started)")
-                
-                # Clear the recording manager so next guest gets a fresh one
-                agent.recording_manager = None
-                print("[RECORDING] Cleared recording manager for next guest")
-            else:
-                print("[RECORDING] No active recording to stop - recording may have failed to start")
-        else:
-            print("[RECORDING] No agent instance available")
-    except Exception as e:
-        print(f"[RECORDING] Error during guest recording cleanup: {e}")
-        import logging
-        logging.error(f"Error stopping recording in close_session: {e}", exc_info=True)
+    """Close current guest session, reset mirror, and prepare for next guest."""
+    print("[AGENT ACTION] Closing guest session - resetting mirror")
     
     # Reset the mirror via backend API
     import aiohttp
@@ -229,11 +141,7 @@ async def close_session() -> str:
             async with session.post(url, timeout=aiohttp.ClientTimeout(total=5)) as response:
                 if response.status == 200:
                     print("[MIRROR DISPLAY] Mirror reset to default state - ready for next guest")
-                    
-                    if recording_stopped:
-                        return "✨ *Magical Farewell Chime* 🔮 Farewell, beautiful soul! Until we meet again! *The mirror sleeps...*"
-                    else:
-                        return "✨ *Magical Farewell Chime* 🔮 Farewell, beautiful soul! Until we meet again! *The mirror sleeps...*"
+                    return "✨ *Magical Farewell Chime* 🔮 Farewell, beautiful soul! Until we meet again! *The mirror sleeps...*"
                 else:
                     return f"✨ *Magical Farewell Chime* 🔮 Farewell! *The mirror sleeps...* (Mirror reset had issues: {response.status})"
     except Exception as e:
@@ -241,40 +149,29 @@ async def close_session() -> str:
 
 
 @function_tool
-async def stop_recording_session() -> str:
-    """Stop the recording session completely when all guests are done."""
-    print("[AGENT ACTION] Stopping recording session completely")
+async def share_couple_secret() -> str:
+    """Share a random, elegant, funny but nice, creative secret about Moatasem and Hala. Use this to delight guests with charming stories about the couple."""
+    import random
     
-    # Stop recording and mark as completed
-    recording_stopped = False
+    secrets = [
+        "Did you know Moatasem once tried to surprise Hala with a picnic, but ended up getting lost in their own neighborhood for two hours? True love finds its way! 💕",
+        "Hala's secret talent? She can recite every line from The Princess Bride perfectly, and Moatasem knows this is her ultimate weakness for romance! 📖✨",
+        "Moatasem claims he's 'terrible at dancing,' but Hala caught him practicing wedding waltz moves in the living room when he thought she was asleep! 💃🕺",
+        "Hala once told Moatasem that her dream wedding would have 'zero drama,' and Moatasem immediately started planning the most magical, drama-free celebration imaginable! 🎭✨",
+        "Moatasem's hidden superpower? He can make Hala laugh even on her worst days with his perfectly timed dad jokes. The man is a comedy genius! 😂💍",
+        "Hala secretly loves that Moatasem sings off-key in the shower every morning, calling it his 'personal alarm clock' that she wouldn't trade for anything! 🎵❤️",
+        "Moatasem once surprised Hala with tickets to see her favorite band, but accidentally bought them for the wrong date - three months too early! Time flies when you're in love! 🎫💕",
+        "Hala's guilty pleasure? Midnight ice cream runs with Moatasem, where they share ridiculous conspiracy theories about their favorite TV shows! 🍦🕵️‍♀️",
+        "Moatasem claims he 'can't cook,' but Hala knows his secret: he's been perfecting his grandmother's famous baklava recipe just for their wedding dessert! 🧁👨‍🍳",
+        "Hala once challenged Moatasem to a cooking competition, and he won by making 'love soup' - basically chicken noodle with extra heart! ❤️🍲"
+    ]
     
-    try:
-        import __main__
-        if hasattr(__main__, 'current_agent') and __main__.current_agent:
-            agent = __main__.current_agent
-            
-            if hasattr(agent, 'recording_manager') and agent.recording_manager:
-                print("[RECORDING] Stopping recording session...")
-                
-                # Stop the recording
-                success = await agent.recording_manager.stop_recording()
-                if success:
-                    print("[RECORDING] Recording stopped and marked as completed in backend")
-                    recording_stopped = True
-                else:
-                    print("[RECORDING] Failed to stop recording")
-            else:
-                print("[RECORDING] No recording manager available to stop")
-        else:
-            print("[RECORDING] No agent instance available for recording cleanup")
-    except Exception as e:
-        print(f"[RECORDING] Error during recording cleanup: {e}")
-        import logging
-        logging.error(f"Error stopping recording: {e}", exc_info=True)
+    selected_secret = random.choice(secrets)
+    print(f"[COUPLE SECRET] Sharing: {selected_secret}")
     
-    if recording_stopped:
-        return "Recording session stopped successfully. All guest interactions have been saved to the backend."
-    else:
-        return "Failed to stop recording session or no recording was active."
-
+    # Display the secret on the mirror
+    display_text = "A sweet secret about Moatasem & Hala! 💕"
+    await update_display(display_text)
+    
+    return selected_secret
 

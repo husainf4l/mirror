@@ -6,8 +6,15 @@ python-multipart==0.0.20
 pydantic-settings==2.0.3
 
 # LiveKit agents and plugins
-livekit-agents[google,images]~=1.0,>=1.0.18
+livekit-agents[google,images,openai]~=1.0,>=1.0.18
 livekit-plugins-noise-cancellation~=0.2
+livekit-plugins-openai~=0.9.0
+livekit-plugins-silero~=0.6.0
+livekit-plugins-elevenlabs~=0.6.0
+livekit~=0.17.0
+
+# OpenAI for Whisper transcription
+openai>=1.0.0
 
 # Environment and configuration
 python-dotenv

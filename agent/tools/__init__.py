@@ -9,8 +9,7 @@ from .agent_functions import (
     start_session,
     close_session,
     display_speech,
-    reset_for_next_guest,
-    stop_recording_session,
+    share_couple_secret,
 )
 
 __all__ = [
@@ -18,6 +17,5 @@ __all__ = [
     'start_session',
     'close_session',
     'display_speech',
-    'reset_for_next_guest',
-    'stop_recording_session',
+    'share_couple_secret',
 ]

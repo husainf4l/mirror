@@ -2,6 +2,7 @@ import logging
 import asyncio
 import base64
 import aiohttp
+import json
 import sys
 import os
 from dotenv import load_dotenv
@@ -14,6 +15,7 @@ from livekit.agents import (
     AgentSession,
     JobContext,
     RoomInputOptions,
+    RoomOutputOptions,
     WorkerOptions,
     cli,
     get_job_context,
@@ -36,13 +38,6 @@ from tools import (
 
 
 
-# Import recording utilities
-from utils.recording import RecordingManager
-
-
-
-
-
 class WeddingMirrorAgent(Agent):
     def __init__(self, ctx: JobContext) -> None:
         # Store context first
@@ -50,13 +45,12 @@ class WeddingMirrorAgent(Agent):
         self.activated = False
         self.inactivity_timer = None
         self.inactivity_timeout = 15.0  # 15 seconds
-        self.recording_manager = None
         self.current_guest_info = None
         
         # Initialize parent with tools
         super().__init__(
   instructions="""
-You are a magical wedding mirror assistant for Rakan & Farah's wedding, straight out of a fairy tale—wise, witty, and full of enchanted vision!
+You are a magical wedding mirror assistant for Moatasem & Hala's wedding, straight out of a fairy tale—wise, witty, and full of enchanted vision!
 
 
 ACTIVATION:
@@ -87,7 +81,7 @@ You have enchanted vision! Use your eyes to see what guests are actually wearing
 
 MIRROR DISPLAY MAGIC:
 - When someone tells you their name for the FIRST TIME: call update_display("[name]") to show their welcome
-- ALWAYS call update_display() when you tell jokes, give compliments, share secrets, or make predictions! Examples:
+- ALWAYS call update_display() when you tell jokes, give compliments, or make predictions! Examples:
  * After compliments: update_display("You look absolutely radiant!")
 - Keep display text under 80 characters for readability
 - Use update_display() frequently to make the mirror interactive and engaging!
@@ -103,9 +97,9 @@ MIRROR DISPLAY MAGIC:
 
 
  YOUR TOOLS:
-- start_session(): Activate mirror with sound and recording
+- start_session(): Activate mirror with sound
 - update_display(text): Show text on mirror (names, compliments, messages)
-- display_speech(content): Use this RIGHT AFTER you speak something interesting! Show your jokes, compliments, secrets, or predictions on the mirror
+- display_speech(content): Use this RIGHT AFTER you speak something interesting! Show your jokes, compliments, or predictions on the mirror
 - close_session(): End interaction, reset mirror
 
 
@@ -122,51 +116,50 @@ CRITICAL: Always call close_session() when the guest indicates they're done or l
             tools=[update_display, start_session, close_session, display_speech],
         )
 
+
+
     async def on_enter(self):
         print("[AGENT STATUS] Wedding mirror agent entering room - waiting for 'mirror mirror' activation")
         logger.info("Wedding mirror agent entering room")
         # Stay silent until activated with "mirror mirror"
+    
+    async def conversation_item_added(self, item):
+        """Called when an item is added to conversation history (finalized)"""
+        try:
+            # Check if it's user speech for activation detection only
+            if hasattr(item, 'role') and item.role == 'user':
+                text = item.content if hasattr(item, 'content') else str(item)
+                print(f"[USER SPEECH] {text}")
+                
+                # Check for activation
+                if "mirror mirror" in text.lower():
+                    print(f"[ACTIVATION] Mirror mirror detected! Current activated state: {self.activated}")
+                    logger.info(f"Mirror mirror detected! Current activated state: {self.activated}")
+                    
+                    if self.activated:
+                        # Reset the session if already activated
+                        print("[ACTIVATION] Calling _reset_session()")
+                        logger.info("Calling _reset_session()")
+                        await self._reset_session()
+                    else:
+                        # Activate the mirror
+                        print("[ACTIVATION] Setting activated=True and calling _activate_mirror()")
+                        logger.info("Setting activated=True and calling _activate_mirror()")
+                        self.activated = True
+                        try:
+                            await self._activate_mirror()
+                        except Exception as e:
+                            print(f"[ACTIVATION] Exception in _activate_mirror(): {e}")
+                            logger.error(f"Exception in _activate_mirror(): {e}", exc_info=True)
+                elif self.activated:
+                    # Reset inactivity timer on any speech
+                    await self._reset_inactivity_timer()
+                
+        except Exception as e:
+            print(f"[CONVERSATION ITEM ERROR] {e}")
+            logger.error(f"Error in conversation_item_added: {e}", exc_info=True)
 
-    async def on_transcript(self, transcript: str):
-        """Called when new transcript is received"""
-        print(f"[GUEST SPEAKING] {transcript}")
-        if "mirror mirror" in transcript.lower():
-            print(f"[ACTIVATION DEBUG] Mirror mirror detected! Current activated state: {self.activated}")
-            logger.info(f"Mirror mirror detected! Current activated state: {self.activated}")
-            
-            if self.activated:
-                # Reset the session if already activated
-                print("[ACTIVATION DEBUG] Calling _reset_session()")
-                logger.info("Calling _reset_session()")
-                await self._reset_session()
-            else:
-                # Activate the mirror
-                print("[ACTIVATION DEBUG] Setting activated=True and calling _activate_mirror()")
-                logger.info("Setting activated=True and calling _activate_mirror()")
-                self.activated = True
-                try:
-                    await self._activate_mirror()
-                except Exception as e:
-                    print(f"[ACTIVATION DEBUG] Exception in _activate_mirror(): {e}")
-                    logger.error(f"Exception in _activate_mirror(): {e}", exc_info=True)
-        elif self.activated:
-            # Reset inactivity timer on any speech
-            await self._reset_inactivity_timer()
 
-    async def on_agent_speech(self, speech: str):
-        """Called when the agent speaks - extract interesting content for display"""
-        if not self.activated:
-            return
-            
-        print(f"[AGENT SPEAKING] {speech}")
-        
-        # Extract and display interesting content
-        display_text = await self._extract_display_content(speech)
-        if display_text:
-            try:
-                await update_display(display_text)
-            except Exception as e:
-                print(f"[DISPLAY ERROR] Failed to update display: {e}")
 
     async def _extract_display_content(self, speech: str) -> str:
         """Extract interesting content from agent speech for display"""
@@ -217,15 +210,6 @@ CRITICAL: Always call close_session() when the guest indicates they're done or l
                 if len(prediction) < 80:
                     return prediction
         
-        # Look for sweet secrets about the couple
-        if "secret" in speech.lower() and ("rakan" in speech.lower() or "farah" in speech.lower()):
-            # Extract the secret part
-            secret_match = re.search(r"[^.!?]*secret[^.!?]*[.!?]", speech, re.IGNORECASE)
-            if secret_match:
-                secret = secret_match.group().strip()
-                if 20 < len(secret) < 100:
-                    return secret
-        
         return None
 
     async def _activate_mirror(self):
@@ -235,41 +219,6 @@ CRITICAL: Always call close_session() when the guest indicates they're done or l
         
         # Reset mirror display first
         await self._reset_mirror_display()
-        
-        # Initialize recording manager
-        try:
-            print("[RECORDING] Initializing RecordingManager...")
-            logger.info("Initializing RecordingManager...")
-            self.recording_manager = RecordingManager(self.ctx)
-            print("[RECORDING] RecordingManager initialized successfully")
-            logger.info("RecordingManager initialized successfully")
-        except Exception as e:
-            print(f"[RECORDING] Failed to initialize RecordingManager: {e}")
-            logger.error(f"Failed to initialize RecordingManager: {e}")
-            self.recording_manager = None
-        
-        # Start recording
-        if self.recording_manager:
-            try:
-                print("[RECORDING] Starting recording...")
-                logger.info("Starting recording...")
-                recording_url = await self.recording_manager.start_recording()
-                if recording_url:
-                    print(f"[RECORDING] Recording started successfully: {recording_url}")
-                    logger.info(f"Recording started successfully: {recording_url}")
-                else:
-                    print("[RECORDING] Recording unavailable (likely egress limit reached), continuing without recording")
-                    logger.warning("Recording unavailable, continuing without recording")
-                    # Disable recording manager to prevent further attempts
-                    self.recording_manager = None
-            except Exception as e:
-                print(f"[RECORDING] Error starting recording: {e}")
-                logger.error(f"Error starting recording: {e}", exc_info=True)
-                # Disable recording manager on error
-                self.recording_manager = None
-        else:
-            print("[RECORDING] No recording manager available, skipping recording")
-            logger.warning("No recording manager available, skipping recording")
         
         # Start the session (play audio and initialize)
         print("[AGENT ACTIVATION] Starting mirror session...")
@@ -307,14 +256,6 @@ CRITICAL: Always call close_session() when the guest indicates they're done or l
         await asyncio.sleep(self.inactivity_timeout)
         if self.activated:
             print("[AGENT TIMEOUT] Session timed out due to inactivity")
-            
-            # Stop recording if active before closing
-            if self.recording_manager and hasattr(self.recording_manager, 'egress_id') and self.recording_manager.egress_id:
-                try:
-                    await self.recording_manager.stop_recording()
-                except Exception as e:
-                    print(f"[TIMEOUT CLEANUP] Error stopping recording: {e}")
-                    logger.error(f"Error stopping recording during timeout: {e}")
             
             # Close the session which handles cleanup
             await close_session()
@@ -359,19 +300,13 @@ async def entrypoint(ctx: JobContext):
     # Setup shutdown callback for cleanup
     async def on_shutdown():
         logger.info("Agent shutting down - performing cleanup...")
-        # Stop recording if active
-        if hasattr(agent, 'recording_manager') and agent.recording_manager:
-            try:
-                await agent.recording_manager.stop_recording()
-                logger.info("Recording stopped during shutdown")
-            except Exception as e:
-                logger.error(f"Error stopping recording during shutdown: {e}")
         logger.info("Agent cleanup completed")
     
     ctx.add_shutdown_callback(on_shutdown)
     
     session = AgentSession()
     logger.info("Starting wedding mirror agent session...")
+    
     await session.start(
         agent=agent,
         room=ctx.room,
@@ -380,7 +315,12 @@ async def entrypoint(ctx: JobContext):
             audio_enabled=True,
             noise_cancellation=noise_cancellation.BVC(),
         ),
+        room_output_options=RoomOutputOptions(
+            transcription_enabled=False,
+            sync_transcription=False,
+        ),
     )
+    
     logger.info("Wedding mirror agent session started successfully")
 
 

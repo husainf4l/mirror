@@ -1,0 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+/* LiveKit Components Base Styles */
+.lk-room-container {
+  display: block;
+}
+
+.lk-audio-output {
+  display: none;
+}
+
+.lk-participant-tile {
+  display: none;
+}
